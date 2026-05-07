@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -892,6 +891,14 @@ class _DescriptionSection extends StatefulWidget {
 
 enum _DescriptionEditView { raw, linked, preview }
 
+class _LinkHit {
+  final TextRange range;
+  final String linkText;
+  final String linkTarget;
+
+  const _LinkHit({required this.range, required this.linkText, required this.linkTarget});
+}
+
 class _DescriptionSectionState extends State<_DescriptionSection> {
   _DescriptionEditView _viewMode = _DescriptionEditView.raw;
   late final _LinkedTextController _linkController;
@@ -900,11 +907,7 @@ class _DescriptionSectionState extends State<_DescriptionSection> {
   @override
   void initState() {
     super.initState();
-    _linkController = _LinkedTextController(
-      onTapLink: (range, linkText, linkTarget) {
-        _editLinkAtRange(range: range, linkText: linkText, linkTarget: linkTarget);
-      },
-    );
+    _linkController = _LinkedTextController();
     _linkController.value = widget.controller.value;
     widget.controller.addListener(_syncFromRawController);
     _linkController.addListener(_syncFromLinkController);
@@ -1053,10 +1056,38 @@ class _DescriptionSectionState extends State<_DescriptionSection> {
       await _linkSelectionToEntry(overrideRange: range, overrideText: linkText);
     }
   }
+
+  _LinkHit? _linkAtOffset(String text, int offset) {
+    final linkRegex = RegExp(r'\[([^\]]+)\]\(([^)]+)\)');
+    for (final match in linkRegex.allMatches(text)) {
+      final linkText = match.group(1) ?? '';
+      final linkTarget = match.group(2) ?? '';
+      final linkTextStart = match.start + 1;
+      final linkTextEnd = linkTextStart + linkText.length;
+      if (offset >= linkTextStart && offset <= linkTextEnd) {
+        return _LinkHit(
+          range: TextRange(start: match.start, end: match.end),
+          linkText: linkText,
+          linkTarget: linkTarget,
+        );
+      }
+    }
+    return null;
+  }
+
+  Future<void> _handleLinkedEditorTap() async {
+    await Future<void>.delayed(Duration.zero);
+    final selection = _linkController.selection;
+    if (!selection.isValid || !selection.isCollapsed) return;
+    final hit = _linkAtOffset(_linkController.text, selection.baseOffset);
+    if (hit == null) return;
+    await _editLinkAtRange(range: hit.range, linkText: hit.linkText, linkTarget: hit.linkTarget);
+  }
   
   Widget _buildLinkedEditor() {
     return TextField(
       controller: _linkController,
+      onTap: _handleLinkedEditorTap,
       style: TextStyle(color: widget.colorScheme.onSurface, fontSize: 15, height: 1.6),
       maxLines: null,
       minLines: 3,
@@ -1372,11 +1403,9 @@ class _MetaSection extends StatelessWidget {
 }
 
 class _LinkedTextController extends TextEditingController {
-  final void Function(TextRange range, String linkText, String linkTarget) onTapLink;
+  _LinkedTextController();
 
-  _LinkedTextController({required this.onTapLink});
-
-  String _mask(String value) => List.filled(value.length, ' ').join();
+  String _mask(String value) => List.filled(value.length, String.fromCharCode(0x200B)).join();
 
   @override
   TextSpan buildTextSpan({required BuildContext context, TextStyle? style, required bool withComposing}) {
@@ -1396,10 +1425,9 @@ class _LinkedTextController extends TextEditingController {
       }
       final linkText = match.group(1) ?? '';
       final linkTarget = match.group(2) ?? '';
-      final range = TextRange(start: match.start, end: match.end);
 
       spans.add(TextSpan(text: _mask('['), style: style));
-      spans.add(TextSpan(text: linkText, style: linkStyle ?? style, recognizer: TapGestureRecognizer()..onTap = () => onTapLink(range, linkText, linkTarget)));
+      spans.add(TextSpan(text: linkText, style: linkStyle ?? style));
       spans.add(TextSpan(text: _mask(']('), style: style));
       spans.add(TextSpan(text: _mask(linkTarget), style: style));
       spans.add(TextSpan(text: _mask(')'), style: style));
