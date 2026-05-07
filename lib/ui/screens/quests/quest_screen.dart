@@ -365,7 +365,6 @@ class _LayoutConfigDialog extends StatefulWidget {
   final bool allowCycles;
 
   const _LayoutConfigDialog({
-    super.key,
     required this.horizontal,
     required this.vertical,
     required this.layer,
@@ -408,6 +407,66 @@ class _LayoutConfigDialogState extends State<_LayoutConfigDialog> {
   late TextEditingController crossingPassesCtrl;
   late TextEditingController forceIterationsCtrl;
   late TextEditingController collisionIterationsCtrl;
+
+  void _applyPreset(_LayoutPreset preset) {
+    setState(() {
+      switch (preset) {
+        case _LayoutPreset.low:
+          horizontal = 120;
+          vertical = 80;
+          layer = 350;
+          nodeRepulsion = 90000;
+          edgeSpringStrength = 0.02;
+          crossingPenalty = 1000;
+          idealEdgeLength = 320;
+          crossingPasses = 8;
+          forceIterations = 6000;
+          collisionIterations = 10;
+          centerGraph = true;
+          allowCycles = true;
+          break;
+        case _LayoutPreset.balanced:
+          horizontal = widget.horizontal;
+          vertical = widget.vertical;
+          layer = widget.layer;
+          nodeRepulsion = widget.nodeRepulsion;
+          edgeSpringStrength = widget.edgeSpringStrength;
+          crossingPenalty = widget.crossingPenalty;
+          idealEdgeLength = widget.idealEdgeLength;
+          crossingPasses = widget.crossingPasses;
+          forceIterations = widget.forceIterations;
+          collisionIterations = widget.collisionIterations;
+          centerGraph = widget.centerGraph;
+          allowCycles = widget.allowCycles;
+          break;
+        case _LayoutPreset.high:
+          horizontal = 120;
+          vertical = 80;
+          layer = 350;
+          nodeRepulsion = 90000;
+          edgeSpringStrength = 0.02;
+          crossingPenalty = 5000;
+          idealEdgeLength = 320;
+          crossingPasses = 16;
+          forceIterations = 100000;
+          collisionIterations = 80;
+          centerGraph = true;
+          allowCycles = true;
+          break;
+      }
+
+      horizontalCtrl.text = horizontal.toStringAsFixed(0);
+      verticalCtrl.text = vertical.toStringAsFixed(0);
+      layerCtrl.text = layer.toStringAsFixed(0);
+      nodeRepulsionCtrl.text = nodeRepulsion.toStringAsFixed(0);
+      edgeSpringStrengthCtrl.text = edgeSpringStrength.toStringAsFixed(4);
+      crossingPenaltyCtrl.text = crossingPenalty.toStringAsFixed(0);
+      idealEdgeLengthCtrl.text = idealEdgeLength.toStringAsFixed(0);
+      crossingPassesCtrl.text = crossingPasses.toString();
+      forceIterationsCtrl.text = forceIterations.toString();
+      collisionIterationsCtrl.text = collisionIterations.toString();
+    });
+  }
 
   @override
   void initState() {
@@ -540,267 +599,289 @@ class _LayoutConfigDialogState extends State<_LayoutConfigDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Layout-Einstellungen'),
+      title: const Text('Layout-Settings'),
       content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _labeledSlider(
-              label: 'Horizontal spacing',
-              value: horizontal,
-              min: 20,
-              max: 500,
-              divisions: 48,
-              onChanged: (v) {
-                setState(() {
-                  horizontal = v;
-                  horizontalCtrl.text = v.toStringAsFixed(0);
-                });
-              },
-              controller: horizontalCtrl,
-              onSubmitted: () {
-                final v = _parseDouble(horizontalCtrl, 20, 500, horizontal);
-                setState(() {
-                  horizontal = v;
-                  horizontalCtrl.text = v.toStringAsFixed(0);
-                });
-              },
-            ),
-            _labeledSlider(
-              label: 'Vertical spacing',
-              value: vertical,
-              min: 10,
-              max: 400,
-              divisions: 39,
-              onChanged: (v) {
-                setState(() {
-                  vertical = v;
-                  verticalCtrl.text = v.toStringAsFixed(0);
-                });
-              },
-              controller: verticalCtrl,
-              onSubmitted: () {
-                final v = _parseDouble(verticalCtrl, 10, 400, vertical);
-                setState(() {
-                  vertical = v;
-                  verticalCtrl.text = v.toStringAsFixed(0);
-                });
-              },
-            ),
-            _labeledSlider(
-              label: 'Layer spacing',
-              value: layer,
-              min: 100,
-              max: 1000,
-              divisions: 90,
-              onChanged: (v) {
-                setState(() {
-                  layer = v;
-                  layerCtrl.text = v.toStringAsFixed(0);
-                });
-              },
-              controller: layerCtrl,
-              onSubmitted: () {
-                final v = _parseDouble(layerCtrl, 100, 1000, layer);
-                setState(() {
-                  layer = v;
-                  layerCtrl.text = v.toStringAsFixed(0);
-                });
-              },
-            ),
-            const Divider(),
-            _labeledSlider(
-              label: 'Node repulsion',
-              value: nodeRepulsion,
-              min: 1000,
-              max: 200000,
-              divisions: 199,
-              onChanged: (v) {
-                setState(() {
-                  nodeRepulsion = v;
-                  nodeRepulsionCtrl.text = v.toStringAsFixed(0);
-                });
-              },
-              controller: nodeRepulsionCtrl,
-              onSubmitted: () {
-                final v = _parseDouble(nodeRepulsionCtrl, 1000, 200000, nodeRepulsion);
-                setState(() {
-                  nodeRepulsion = v;
-                  nodeRepulsionCtrl.text = v.toStringAsFixed(0);
-                });
-              },
-            ),
-            _labeledSlider(
-              label: 'Edge spring strength',
-              value: edgeSpringStrength,
-              min: 0.001,
-              max: 0.2,
-              divisions: 199,
-              onChanged: (v) {
-                setState(() {
-                  edgeSpringStrength = v;
-                  edgeSpringStrengthCtrl.text = v.toStringAsFixed(4);
-                });
-              },
-              controller: edgeSpringStrengthCtrl,
-              onSubmitted: () {
-                final v = _parseDouble(edgeSpringStrengthCtrl, 0.001, 0.2, edgeSpringStrength);
-                setState(() {
-                  edgeSpringStrength = v;
-                  edgeSpringStrengthCtrl.text = v.toString();
-                });
-              },
-            ),
-            _labeledSlider(
-              label: 'Crossing penalty',
-              value: crossingPenalty,
-              min: 0,
-              max: 5000,
-              divisions: 100,
-              onChanged: (v) {
-                setState(() {
-                  crossingPenalty = v;
-                  crossingPenaltyCtrl.text = v.toStringAsFixed(0);
-                });
-              },
-              controller: crossingPenaltyCtrl,
-              onSubmitted: () {
-                final v = _parseDouble(crossingPenaltyCtrl, 0, 5000, crossingPenalty);
-                setState(() {
-                  crossingPenalty = v;
-                  crossingPenaltyCtrl.text = v.toStringAsFixed(0);
-                });
-              },
-            ),
-            _labeledSlider(
-              label: 'Ideal edge length',
-              value: idealEdgeLength,
-              min: 50,
-              max: 1000,
-              divisions: 95,
-              onChanged: (v) {
-                setState(() {
-                  idealEdgeLength = v;
-                  idealEdgeLengthCtrl.text = v.toStringAsFixed(0);
-                });
-              },
-              controller: idealEdgeLengthCtrl,
-              onSubmitted: () {
-                final v = _parseDouble(idealEdgeLengthCtrl, 50, 1000, idealEdgeLength);
-                setState(() {
-                  idealEdgeLength = v;
-                  idealEdgeLengthCtrl.text = v.toStringAsFixed(0);
-                });
-              },
-            ),
-            const Divider(),
-            Row(
-              children: [
-                Expanded(
-                  child: _numberField(
-                    label: 'Crossing passes',
-                    controller: crossingPassesCtrl,
-                    onSubmitted: () {
-                      final v = _parseInt(crossingPassesCtrl, 0, 100, crossingPasses);
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 400),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SegmentedButton<_LayoutPreset>(
+                segments: const [
+                  ButtonSegment(value: _LayoutPreset.low, label: Text('Low'), icon: Icon(Icons.speed)),
+                  ButtonSegment(value: _LayoutPreset.balanced, label: Text('Balanced'), icon: Icon(Icons.balance)),
+                  ButtonSegment(value: _LayoutPreset.high, label: Text('High'), icon: Icon(Icons.precision_manufacturing)),
+                ],
+                selected: {_currentPreset()},
+                onSelectionChanged: (selection) {
+                  if (selection.isEmpty) return;
+                  _applyPreset(selection.first);
+                },
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Low = schnell, Balanced = guter Standard, High = genauer aber langsamer',
+                style: Theme.of(context).textTheme.bodySmall,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              _labeledSlider(
+                label: 'Horizontal spacing',
+                value: horizontal,
+                min: 20,
+                max: 500,
+                divisions: 48,
+                onChanged: (v) {
+                  setState(() {
+                    horizontal = v;
+                    horizontalCtrl.text = v.toStringAsFixed(0);
+                  });
+                },
+                controller: horizontalCtrl,
+                onSubmitted: () {
+                  final v = _parseDouble(horizontalCtrl, 20, 500, horizontal);
+                  setState(() {
+                    horizontal = v;
+                    horizontalCtrl.text = v.toStringAsFixed(0);
+                  });
+                },
+              ),
+              _labeledSlider(
+                label: 'Vertical spacing',
+                value: vertical,
+                min: 10,
+                max: 400,
+                divisions: 39,
+                onChanged: (v) {
+                  setState(() {
+                    vertical = v;
+                    verticalCtrl.text = v.toStringAsFixed(0);
+                  });
+                },
+                controller: verticalCtrl,
+                onSubmitted: () {
+                  final v = _parseDouble(verticalCtrl, 10, 400, vertical);
+                  setState(() {
+                    vertical = v;
+                    verticalCtrl.text = v.toStringAsFixed(0);
+                  });
+                },
+              ),
+              _labeledSlider(
+                label: 'Layer spacing',
+                value: layer,
+                min: 100,
+                max: 1000,
+                divisions: 90,
+                onChanged: (v) {
+                  setState(() {
+                    layer = v;
+                    layerCtrl.text = v.toStringAsFixed(0);
+                  });
+                },
+                controller: layerCtrl,
+                onSubmitted: () {
+                  final v = _parseDouble(layerCtrl, 100, 1000, layer);
+                  setState(() {
+                    layer = v;
+                    layerCtrl.text = v.toStringAsFixed(0);
+                  });
+                },
+              ),
+              const Divider(),
+              _labeledSlider(
+                label: 'Node repulsion',
+                value: nodeRepulsion,
+                min: 1000,
+                max: 200000,
+                divisions: 199,
+                onChanged: (v) {
+                  setState(() {
+                    nodeRepulsion = v;
+                    nodeRepulsionCtrl.text = v.toStringAsFixed(0);
+                  });
+                },
+                controller: nodeRepulsionCtrl,
+                onSubmitted: () {
+                  final v = _parseDouble(nodeRepulsionCtrl, 1000, 200000, nodeRepulsion);
+                  setState(() {
+                    nodeRepulsion = v;
+                    nodeRepulsionCtrl.text = v.toStringAsFixed(0);
+                  });
+                },
+              ),
+              _labeledSlider(
+                label: 'Edge spring strength',
+                value: edgeSpringStrength,
+                min: 0.001,
+                max: 0.2,
+                divisions: 199,
+                onChanged: (v) {
+                  setState(() {
+                    edgeSpringStrength = v;
+                    edgeSpringStrengthCtrl.text = v.toStringAsFixed(4);
+                  });
+                },
+                controller: edgeSpringStrengthCtrl,
+                onSubmitted: () {
+                  final v = _parseDouble(edgeSpringStrengthCtrl, 0.001, 0.2, edgeSpringStrength);
+                  setState(() {
+                    edgeSpringStrength = v;
+                    edgeSpringStrengthCtrl.text = v.toString();
+                  });
+                },
+              ),
+              _labeledSlider(
+                label: 'Crossing penalty',
+                value: crossingPenalty,
+                min: 0,
+                max: 5000,
+                divisions: 100,
+                onChanged: (v) {
+                  setState(() {
+                    crossingPenalty = v;
+                    crossingPenaltyCtrl.text = v.toStringAsFixed(0);
+                  });
+                },
+                controller: crossingPenaltyCtrl,
+                onSubmitted: () {
+                  final v = _parseDouble(crossingPenaltyCtrl, 0, 5000, crossingPenalty);
+                  setState(() {
+                    crossingPenalty = v;
+                    crossingPenaltyCtrl.text = v.toStringAsFixed(0);
+                  });
+                },
+              ),
+              _labeledSlider(
+                label: 'Ideal edge length',
+                value: idealEdgeLength,
+                min: 50,
+                max: 1000,
+                divisions: 95,
+                onChanged: (v) {
+                  setState(() {
+                    idealEdgeLength = v;
+                    idealEdgeLengthCtrl.text = v.toStringAsFixed(0);
+                  });
+                },
+                controller: idealEdgeLengthCtrl,
+                onSubmitted: () {
+                  final v = _parseDouble(idealEdgeLengthCtrl, 50, 1000, idealEdgeLength);
+                  setState(() {
+                    idealEdgeLength = v;
+                    idealEdgeLengthCtrl.text = v.toStringAsFixed(0);
+                  });
+                },
+              ),
+              const Divider(),
+              Row(
+                children: [
+                  Expanded(
+                    child: _numberField(
+                      label: 'Crossing passes',
+                      controller: crossingPassesCtrl,
+                      onSubmitted: () {
+                        final v = _parseInt(crossingPassesCtrl, 0, 100, crossingPasses);
+                        setState(() {
+                          crossingPasses = v;
+                          crossingPassesCtrl.text = v.toString();
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _numberField(
+                      label: 'Force iterations',
+                      controller: forceIterationsCtrl,
+                      onSubmitted: () {
+                        final v = _parseInt(forceIterationsCtrl, 0, 5000, forceIterations);
+                        setState(() {
+                          forceIterations = v;
+                          forceIterationsCtrl.text = v.toString();
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _numberField(
+                      label: 'Collision iterations',
+                      controller: collisionIterationsCtrl,
+                      onSubmitted: () {
+                        final v = _parseInt(collisionIterationsCtrl, 0, 100, collisionIterations);
+                        setState(() {
+                          collisionIterations = v;
+                          collisionIterationsCtrl.text = v.toString();
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: Container()), 
+                ],
+              ),
+              const Divider(),
+              SwitchListTile(
+                title: const Text('Center graph'),
+                value: centerGraph,
+                onChanged: (v) => setState(() => centerGraph = v),
+              ),
+              SwitchListTile(
+                title: const Text('Allow cycles'),
+                value: allowCycles,
+                onChanged: (v) => setState(() => allowCycles = v),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.restore),
+                    label: const Text('Reset to Defaults'),
+                    onPressed: () {
                       setState(() {
-                        crossingPasses = v;
-                        crossingPassesCtrl.text = v.toString();
+                        horizontal = widget.horizontal;
+                        vertical = widget.vertical;
+                        layer = widget.layer;
+                        nodeRepulsion = widget.nodeRepulsion;
+                        edgeSpringStrength = widget.edgeSpringStrength;
+                        crossingPenalty = widget.crossingPenalty;
+                        idealEdgeLength = widget.idealEdgeLength;
+                        crossingPasses = widget.crossingPasses;
+                        forceIterations = widget.forceIterations;
+                        collisionIterations = widget.collisionIterations;
+                        centerGraph = widget.centerGraph;
+                        allowCycles = widget.allowCycles;
+          
+                        horizontalCtrl.text = horizontal.toStringAsFixed(0);
+                        verticalCtrl.text = vertical.toStringAsFixed(0);
+                        layerCtrl.text = layer.toStringAsFixed(0);
+                        nodeRepulsionCtrl.text = nodeRepulsion.toStringAsFixed(0);
+                        edgeSpringStrengthCtrl.text = edgeSpringStrength.toString();
+                        crossingPenaltyCtrl.text = crossingPenalty.toStringAsFixed(0);
+                        idealEdgeLengthCtrl.text = idealEdgeLength.toStringAsFixed(0);
+                        crossingPassesCtrl.text = crossingPasses.toString();
+                        forceIterationsCtrl.text = forceIterations.toString();
+                        collisionIterationsCtrl.text = collisionIterations.toString();
                       });
                     },
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _numberField(
-                    label: 'Force iterations',
-                    controller: forceIterationsCtrl,
-                    onSubmitted: () {
-                      final v = _parseInt(forceIterationsCtrl, 0, 5000, forceIterations);
-                      setState(() {
-                        forceIterations = v;
-                        forceIterationsCtrl.text = v.toString();
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _numberField(
-                    label: 'Collision iterations',
-                    controller: collisionIterationsCtrl,
-                    onSubmitted: () {
-                      final v = _parseInt(collisionIterationsCtrl, 0, 100, collisionIterations);
-                      setState(() {
-                        collisionIterations = v;
-                        collisionIterationsCtrl.text = v.toString();
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(child: Container()), 
-              ],
-            ),
-            const Divider(),
-            SwitchListTile(
-              title: const Text('Center graph'),
-              value: centerGraph,
-              onChanged: (v) => setState(() => centerGraph = v),
-            ),
-            SwitchListTile(
-              title: const Text('Allow cycles'),
-              value: allowCycles,
-              onChanged: (v) => setState(() => allowCycles = v),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.restore),
-                  label: const Text('Auf Standard zurücksetzen'),
-                  onPressed: () {
-                    setState(() {
-                      horizontal = widget.horizontal;
-                      vertical = widget.vertical;
-                      layer = widget.layer;
-                      nodeRepulsion = widget.nodeRepulsion;
-                      edgeSpringStrength = widget.edgeSpringStrength;
-                      crossingPenalty = widget.crossingPenalty;
-                      idealEdgeLength = widget.idealEdgeLength;
-                      crossingPasses = widget.crossingPasses;
-                      forceIterations = widget.forceIterations;
-                      collisionIterations = widget.collisionIterations;
-                      centerGraph = widget.centerGraph;
-                      allowCycles = widget.allowCycles;
-
-                      horizontalCtrl.text = horizontal.toStringAsFixed(0);
-                      verticalCtrl.text = vertical.toStringAsFixed(0);
-                      layerCtrl.text = layer.toStringAsFixed(0);
-                      nodeRepulsionCtrl.text = nodeRepulsion.toStringAsFixed(0);
-                      edgeSpringStrengthCtrl.text = edgeSpringStrength.toString();
-                      crossingPenaltyCtrl.text = crossingPenalty.toStringAsFixed(0);
-                      idealEdgeLengthCtrl.text = idealEdgeLength.toStringAsFixed(0);
-                      crossingPassesCtrl.text = crossingPasses.toString();
-                      forceIterationsCtrl.text = forceIterations.toString();
-                      collisionIterationsCtrl.text = collisionIterations.toString();
-                    });
-                  },
-                ),
-                const SizedBox(width: 8),
-                Expanded(child: Container()),
-              ],
-            ),
-          ],
+                  const SizedBox(width: 8),
+                  Expanded(child: Container()),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(null),
-          child: const Text('Abbrechen'),
+          child: const Text('Cancel'),
         ),
         ElevatedButton(
           onPressed: () {
@@ -832,10 +913,20 @@ class _LayoutConfigDialogState extends State<_LayoutConfigDialog> {
 
             Navigator.of(context).pop(config);
           },
-          child: const Text('Übernehmen'),
+          child: const Text('Apply'),
         ),
       ],
     );
+  }
+
+  _LayoutPreset _currentPreset() {
+    final matchesLow = horizontal == 96 && vertical == 64 && layer == 280 && nodeRepulsion == 42000 && edgeSpringStrength == 0.012 && crossingPenalty == 520 && idealEdgeLength == 250 && crossingPasses == 4 && forceIterations == 80 && collisionIterations == 3 && centerGraph && allowCycles;
+    if (matchesLow) return _LayoutPreset.low;
+
+    final matchesHigh = horizontal == 140 && vertical == 92 && layer == 390 && nodeRepulsion == 135000 && edgeSpringStrength == 0.03 && crossingPenalty == 1800 && idealEdgeLength == 340 && crossingPasses == 16 && forceIterations == 420 && collisionIterations == 10 && centerGraph && allowCycles;
+    if (matchesHigh) return _LayoutPreset.high;
+
+    return _LayoutPreset.balanced;
   }
 
   Widget _labeledSlider({
@@ -880,6 +971,8 @@ class _LayoutConfigDialogState extends State<_LayoutConfigDialog> {
     );
   }
 }
+
+enum _LayoutPreset { low, balanced, high }
 
 
 class _SubjectNode {

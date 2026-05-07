@@ -5,6 +5,7 @@ import 'package:lumox/logic/quests/quest_layout/quest_layout_config.dart';
 import 'package:lumox/logic/quests/quest_layout/quest_layout_edge.dart';
 import 'package:lumox/logic/quests/quest_layout/quest_layout_node.dart';
 
+import '../quest_change_manager.dart';
 import '../quest_system.dart';
 
 class QuestGraphLayoutEngine {
@@ -188,19 +189,39 @@ class QuestGraphLayoutEngine {
     return values[values.length ~/ 2];
   }
 
-  void _assignCoordinates(Map<int, LayoutNode> nodes) {
+  void _assignCoordinates(
+      Map<int, LayoutNode> nodes,
+      ) {
     final layers = _buildLayers(nodes);
 
-    for (int layerIndex = 0; layerIndex < layers.length; layerIndex++) {
+    for (int layerIndex = 0;
+    layerIndex < layers.length;
+    layerIndex++) {
+
       final layer = layers[layerIndex];
+
+      layer.sort((a, b) => a.order.compareTo(b.order));
+
+      final density = _layerDensity(layer);
+
+      final dynamicVerticalSpacing =
+          config.verticalSpacing + density * 35;
+
+      final dynamicLayerSpacing =
+          config.layerSpacing + density * 50;
 
       double y = 0;
 
       for (final node in layer) {
-        node.x = layerIndex * config.layerSpacing;
+        final nodeDensity = _nodeDensity(node);
+
+        final nodeSpacing =
+            dynamicVerticalSpacing + nodeDensity * 25;
+
+        node.x = layerIndex * dynamicLayerSpacing;
         node.y = y;
 
-        y += node.height + config.verticalSpacing;
+        y += node.height + nodeSpacing;
       }
 
       final height = y;
@@ -209,6 +230,25 @@ class QuestGraphLayoutEngine {
         node.y -= height / 2;
       }
     }
+  }
+
+  double _nodeDensity(LayoutNode node) {
+    return (
+        node.incoming.length +
+            node.outgoing.length
+    ).toDouble();
+  }
+
+  double _layerDensity(List<LayoutNode> layer) {
+    if (layer.isEmpty) return 0;
+
+    double total = 0;
+
+    for (final node in layer) {
+      total += _nodeDensity(node);
+    }
+
+    return total / layer.length;
   }
 
   void _forceOptimize(Map<int, LayoutNode> nodes, List<LayoutEdge> edges) {
@@ -232,7 +272,20 @@ class QuestGraphLayoutEngine {
           final distSq = dx * dx + dy * dy + 0.01;
           final dist = sqrt(distSq);
 
-          final force = config.nodeRepulsion / distSq;
+          final degreeA =
+              a.incoming.length + a.outgoing.length;
+
+          final degreeB =
+              b.incoming.length + b.outgoing.length;
+
+          final degreeFactor =
+              1 + (degreeA + degreeB) * 0.15;
+
+          final localBoost = dist < 250 ? 4.0 : 1.0;
+
+          final force =
+              (config.nodeRepulsion * degreeFactor * localBoost)
+                  / distSq;
 
           final fx = dx / dist * force;
           final fy = dy / dist * force;
@@ -265,8 +318,9 @@ class QuestGraphLayoutEngine {
       for (final node in nodeList) {
         final f = forces[node]!;
 
-        node.x += f.dx * 0.02;
-        node.y += f.dy * 0.02;
+        node.x += f.dx * 0.003;
+
+        node.y += f.dy * 0.025;
       }
     }
   }
@@ -330,13 +384,35 @@ class QuestGraphLayoutEngine {
     }
   }
 
-  void _writeBack(QuestSystem system, Map<int, LayoutNode> nodes) {
+  void _writeBack(
+      QuestSystem system,
+      Map<int, LayoutNode> nodes,
+      ) {
+    final manager = system.changeManager;
+
     for (final quest in system.quests) {
       final node = nodes[quest.id]!;
 
-      final updated = quest.copyWith(posX: node.x, posY: node.y);
+      final newX = node.x.roundToDouble();
+      final newY = node.y.roundToDouble();
 
-      system.upsertQuest(updated);
+      if ((quest.posX - newX).abs() < 0.5 &&
+          (quest.posY - newY).abs() < 0.5) {
+        continue;
+      }
+
+      final updated = quest.copyWith(
+        posX: newX,
+        posY: newY,
+      );
+
+      final change = UpdateQuestChange.fromDiff(
+        before: quest,
+        after: updated,
+        updateMessage: 'auto-arranged quest layout',
+      );
+
+      manager.record(change);
     }
   }
 }
