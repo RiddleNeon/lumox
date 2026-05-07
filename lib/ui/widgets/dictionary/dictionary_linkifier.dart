@@ -115,6 +115,7 @@ class DictionaryMarkdownBody extends StatelessWidget {
   final MarkdownStyleSheet? styleSheet;
   final void Function(DictionaryEntry entry) onTapEntry;
   final Color? linkColor;
+  final Map<String, DictionaryEntry>? titleIndex;
 
   const DictionaryMarkdownBody({
     super.key,
@@ -123,11 +124,12 @@ class DictionaryMarkdownBody extends StatelessWidget {
     required this.onTapEntry,
     this.styleSheet,
     this.linkColor,
+    this.titleIndex,
   });
 
   @override
   Widget build(BuildContext context) {
-    final entriesByTitle = <String, DictionaryEntry>{
+    final entriesByTitle = titleIndex ?? <String, DictionaryEntry>{
       for (final entry in entries)
         if (entry.normalizedTitle.isNotEmpty) entry.normalizedTitle: entry,
     };
@@ -139,15 +141,20 @@ class DictionaryMarkdownBody extends StatelessWidget {
     final entriesByRoute = <String, DictionaryEntry>{
       for (final entry in entries) entry.route: entry,
     };
+    final entriesBySubjectTitle = _buildSubjectTitleIndex(entriesByTitle);
 
-    final linkifiedData = _linkifyDictionaryEntries(data, entriesByTitle);
     final effectiveStyleSheet = _applyLinkStyle(styleSheet, linkColor, context);
 
     return MarkdownBody(
-      data: linkifiedData,
+      data: data,
       styleSheet: effectiveStyleSheet,
       onTapLink: (text, href, title) {
         if (href == null || href.trim().isEmpty) return;
+        final subjectEntry = _entryForSubjectRef(href, entriesBySubjectTitle);
+        if (subjectEntry != null) {
+          onTapEntry(subjectEntry);
+          return;
+        }
         final entry = _entryForHref(href, entriesByRoute);
         if (entry != null) {
           onTapEntry(entry);
@@ -185,6 +192,58 @@ DictionaryEntry? _entryForHref(String href, Map<String, DictionaryEntry> entries
   return null;
 }
 
+DictionaryEntry? _entryForSubjectRef(String href, Map<String, DictionaryEntry> entriesBySubjectTitle) {
+  final trimmed = href.trim();
+  if (trimmed.isEmpty) return null;
+  if (trimmed.startsWith('/') || trimmed.contains('://')) return null;
+  final separatorIndex = trimmed.indexOf(':');
+  if (separatorIndex <= 0 || separatorIndex >= trimmed.length - 1) return null;
+  final subject = Uri.decodeComponent(trimmed.substring(0, separatorIndex)).trim().toLowerCase();
+  final entryKey = Uri.decodeComponent(trimmed.substring(separatorIndex + 1)).trim().toLowerCase();
+  if (subject.isEmpty || entryKey.isEmpty) return null;
+  return entriesBySubjectTitle['$subject:$entryKey'];
+}
+
+Map<String, DictionaryEntry> _buildSubjectTitleIndex(Map<String, DictionaryEntry> entriesByTitle) {
+  final index = <String, DictionaryEntry>{};
+  for (final entry in entriesByTitle.entries) {
+    final term = entry.key.trim().toLowerCase();
+    if (term.isEmpty) continue;
+    final subject = entry.value.subject.trim().toLowerCase();
+    if (subject.isEmpty) continue;
+    index.putIfAbsent('$subject:$term', () => entry.value);
+  }
+  return index;
+}
+
+String linkifyDictionaryEntriesForSubject({
+  required String data,
+  required Map<String, DictionaryEntry> entriesByTitle,
+  required String subject,
+}) {
+  final normalizedSubject = subject.trim().toLowerCase();
+  if (data.trim().isEmpty || normalizedSubject.isEmpty) return data;
+
+  final filtered = <String, DictionaryEntry>{};
+  for (final entry in entriesByTitle.entries) {
+    final entrySubject = entry.value.subject.trim().toLowerCase();
+    if (entrySubject != normalizedSubject) continue;
+    final term = entry.key.trim().toLowerCase();
+    if (term.isEmpty) continue;
+    filtered.putIfAbsent(term, () => entry.value);
+  }
+
+  if (filtered.isEmpty) return data;
+
+  final pattern = RegExp(
+    _buildDictionaryPattern(filtered.keys.toList()),
+    multiLine: true,
+    caseSensitive: false,
+  );
+  final skipRanges = _collectMarkdownSkipRanges(data);
+  return _replaceMatchesWithSubjectRef(data, pattern, filtered, skipRanges);
+}
+
 String _linkifyDictionaryEntries(String data, Map<String, DictionaryEntry> entriesByTitle) {
   if (data.trim().isEmpty) return data;
   final pattern = RegExp(
@@ -220,6 +279,39 @@ String _replaceMatches(
 
     buffer.write(data.substring(cursor, start));
     buffer.write('[$matched](${entry.route})');
+    cursor = end;
+  }
+
+  if (cursor < data.length) {
+    buffer.write(data.substring(cursor));
+  }
+
+  return buffer.toString();
+}
+
+String _replaceMatchesWithSubjectRef(
+  String data,
+  RegExp pattern,
+  Map<String, DictionaryEntry> entriesByTitle,
+  List<TextRange> skipRanges,
+) {
+  final buffer = StringBuffer();
+  var cursor = 0;
+
+  for (final match in pattern.allMatches(data)) {
+    final start = match.start;
+    final end = match.end;
+    if (_isInSkipRange(start, end, skipRanges)) {
+      continue;
+    }
+    if (start < cursor) continue;
+
+    final matched = match.group(0) ?? '';
+    final entry = entriesByTitle[matched.trim().toLowerCase()];
+    if (entry == null) continue;
+
+    buffer.write(data.substring(cursor, start));
+    buffer.write('[$matched](${entry.subject}:${entry.title})');
     cursor = end;
   }
 

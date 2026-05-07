@@ -69,6 +69,7 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
   bool _dictionaryLoading = false;
   bool _dictionaryAutoOpenedPreview = false;
   bool _dictionaryPreparedShareContacts = false;
+  Map<String, int> _dictionaryAliasIndex = const {};
 
   int _searchRequestId = 0;
   int _dictionaryRequestId = 0;
@@ -247,6 +248,9 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
     if (_dictionarySubjects.isEmpty) {
       _loadDictionarySubjects();
     }
+    if (_dictionaryAliasIndex.isEmpty) {
+      _loadDictionaryAliases();
+    }
     if (!loadEntries) return;
     final currentQuery = _controller.text.trim();
     if (_dictionaryEntries.isNotEmpty && _dictionaryQuery == currentQuery && _dictionaryLoadedSubject == _dictionarySelectedSubject) {
@@ -264,6 +268,12 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
         _dictionarySelectedSubject = null;
       }
     });
+  }
+
+  Future<void> _loadDictionaryAliases() async {
+    final aliasIndex = await dictionaryRepository.fetchAliasIndex();
+    if (!mounted) return;
+    setState(() => _dictionaryAliasIndex = aliasIndex);
   }
 
   Future<List<DictionaryEntry>> _fetchDictionaryEntriesForQuery(String query) {
@@ -380,6 +390,7 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
   }
 
   Future<void> _openEntryDetails(BuildContext context, DictionaryEntry entry, List<DictionaryEntry> entries) async {
+    final titleIndex = dictionaryRepository.buildTitleAliasIndex(entries, _dictionaryAliasIndex);
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -388,6 +399,7 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
         return _DictionaryEntryDetailsSheet(
           entry: entry,
           entries: entries,
+          titleIndex: titleIndex,
           shareContacts: _contactsForEntry(entry),
           onOpenQuest: () {
             Navigator.of(ctx).pop();
@@ -814,6 +826,7 @@ class _SearchSegmentButton extends StatelessWidget {
 class _DictionaryEntryDetailsSheet extends StatelessWidget {
   final DictionaryEntry entry;
   final List<DictionaryEntry> entries;
+  final Map<String, DictionaryEntry> titleIndex;
   final List<ShareContact> shareContacts;
   final VoidCallback onOpenQuest;
   final Future<void> Function(ShareContact contact) onShareToContact;
@@ -821,6 +834,7 @@ class _DictionaryEntryDetailsSheet extends StatelessWidget {
   const _DictionaryEntryDetailsSheet({
     required this.entry,
     required this.entries,
+    required this.titleIndex,
     required this.shareContacts,
     required this.onOpenQuest,
     required this.onShareToContact,

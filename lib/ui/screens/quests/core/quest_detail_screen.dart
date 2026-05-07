@@ -581,10 +581,14 @@ class _DescriptionSection extends StatelessWidget {
               decoration: _editInputDecoration(context, colorScheme, hint: 'Quest description…'),
             )
           else
-            FutureBuilder<List<DictionaryEntry>>(
-              future: dictionaryRepository.fetchEntries(),
+            FutureBuilder<List<dynamic>>(
+              future: Future.wait([
+                dictionaryRepository.fetchEntries(),
+                dictionaryRepository.fetchAliasIndex(),
+              ]),
               builder: (context, snapshot) {
-                final entries = snapshot.data ?? const <DictionaryEntry>[];
+                final entries = snapshot.data != null ? snapshot.data![0] as List<DictionaryEntry> : const <DictionaryEntry>[];
+                final aliasIndex = snapshot.data != null ? snapshot.data![1] as Map<String, int> : const <String, int>{};
                 if (entries.isEmpty) {
                   return MarkdownBody(
                     data: description,
@@ -595,6 +599,7 @@ class _DescriptionSection extends StatelessWidget {
                 return DictionaryMarkdownBody(
                   data: description,
                   entries: entries,
+                  titleIndex: dictionaryRepository.buildTitleAliasIndex(entries, aliasIndex),
                   linkColor: colorScheme.primary,
                   onTapEntry: (entry) => showDictionaryEntryPreviewSheet(
                     context,

@@ -37,6 +37,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   List<DictionaryEntry> _entries = const [];
   bool _isLoading = false;
   int _searchRequestId = 0;
+  Map<String, int> _aliasIndex = const {};
 
   List<ShareContact> _shareContacts = const [];
   final Map<String, Chat> _chatByPartnerId = {};
@@ -49,6 +50,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
 	_searchController.addListener(_onSearchChanged);
 	_loadSubjects();
 	_loadEntries();
+	_loadAliasIndex();
 	WidgetsBinding.instance.addPostFrameCallback((_) {
 	  if (!mounted) return;
 	  _prepareShareContacts();
@@ -92,6 +94,12 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     } finally {
       if (mounted && requestId == _searchRequestId) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _loadAliasIndex() async {
+    final aliasIndex = await dictionaryRepository.fetchAliasIndex();
+    if (!mounted) return;
+    setState(() => _aliasIndex = aliasIndex);
   }
 
   void _refreshEntries() => _loadEntries();
@@ -194,6 +202,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   }
 
   Future<void> _openEntryDetails(BuildContext context, DictionaryEntry entry, List<DictionaryEntry> entries) async {
+    final titleIndex = dictionaryRepository.buildTitleAliasIndex(entries, _aliasIndex);
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -202,6 +211,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         return _DictionaryEntryDetailsSheet(
           entry: entry,
           entries: entries,
+          titleIndex: titleIndex,
           shareContacts: _contactsForEntry(entry),
           onOpenQuest: () {
             Navigator.of(ctx).pop();
@@ -401,6 +411,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
 class _DictionaryEntryDetailsSheet extends StatelessWidget {
   final DictionaryEntry entry;
   final List<DictionaryEntry> entries;
+  final Map<String, DictionaryEntry> titleIndex;
   final List<ShareContact> shareContacts;
   final VoidCallback onOpenQuest;
   final Future<void> Function(ShareContact contact) onShareToContact;
@@ -408,6 +419,7 @@ class _DictionaryEntryDetailsSheet extends StatelessWidget {
   const _DictionaryEntryDetailsSheet({
     required this.entry,
     required this.entries,
+    required this.titleIndex,
     required this.shareContacts,
     required this.onOpenQuest,
     required this.onShareToContact,
@@ -505,6 +517,7 @@ class _DictionaryEntryDetailsSheet extends StatelessWidget {
                 child: DictionaryMarkdownBody(
                   data: entry.description,
                   entries: entries,
+                  titleIndex: titleIndex,
                   linkColor: cs.primary,
                   onTapEntry: (dictionaryEntry) => showDictionaryEntryPreviewSheet(
                     context,

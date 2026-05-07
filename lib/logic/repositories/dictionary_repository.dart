@@ -9,6 +9,8 @@ class DictionaryRepository {
   Future<List<DictionaryEntry>>? _allEntriesTask;
   final Map<String, Future<List<DictionaryEntry>>> _subjectTasks = {};
   final Map<String, List<DictionaryEntry>> _subjectCache = {};
+  Future<Map<String, int>>? _aliasIndexTask;
+  Map<String, int>? _aliasIndexCache;
 
   Future<List<DictionaryEntry>> fetchEntries({String? subject}) {
     final normalizedSubject = subject?.trim();
@@ -67,9 +69,54 @@ class DictionaryRepository {
     return index;
   }
 
+  Future<Map<String, int>> fetchAliasIndex() {
+    final cached = _aliasIndexCache;
+    if (cached != null) return Future.value(cached);
+    return _aliasIndexTask ??= _loadAliasIndex().then((index) {
+      _aliasIndexCache = index;
+      return index;
+    });
+  }
+
+  Future<Map<String, DictionaryEntry>> fetchTitleAliasIndex({String? subject}) async {
+    final entries = await fetchEntries(subject: subject);
+    final aliasIndex = await fetchAliasIndex();
+    return buildTitleAliasIndex(entries, aliasIndex);
+  }
+
+  Map<String, DictionaryEntry> buildTitleAliasIndex(List<DictionaryEntry> entries, Map<String, int> aliasIndex) {
+    final index = <String, DictionaryEntry>{};
+    final entryById = {for (final entry in entries) entry.questId: entry};
+    for (final entry in entries) {
+      if (entry.normalizedTitle.isEmpty) continue;
+      index.putIfAbsent(entry.normalizedTitle, () => entry);
+    }
+    for (final aliasEntry in aliasIndex.entries) {
+      final entry = entryById[aliasEntry.value];
+      if (entry == null) continue;
+      final alias = aliasEntry.key.trim();
+      if (alias.isEmpty) continue;
+      index.putIfAbsent(alias, () => entry);
+    }
+    return index;
+  }
+
   Future<List<DictionaryEntry>> _loadEntries({String? subject}) async {
     final rows = await _loadQuestRows(subject: subject);
     return _buildEntriesFromQuestRows(rows);
+  }
+
+  Future<Map<String, int>> _loadAliasIndex() async {
+    final rows = await supabaseClient.from('quest_title_aliases').select('quest_id, alias');
+    final index = <String, int>{};
+    for (final row in rows as List<dynamic>) {
+      final map = Map<String, dynamic>.from(row as Map);
+      final alias = (map['alias'] as String? ?? '').trim().toLowerCase();
+      final questId = map['quest_id'] as int?;
+      if (alias.isEmpty || questId == null) continue;
+      index.putIfAbsent(alias, () => questId);
+    }
+    return index;
   }
 
   Future<List<dynamic>> _loadQuestRows({String? subject}) async {

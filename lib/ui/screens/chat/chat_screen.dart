@@ -118,12 +118,10 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
   Future<void> _loadDictionaryEntries() async {
     try {
       final entries = await dictionaryRepository.fetchEntries();
+      final aliasIndex = await dictionaryRepository.fetchAliasIndex();
       if (!mounted) return;
       setState(() {
-        _dictionaryEntriesByTitle = {
-          for (final entry in entries)
-            if (entry.normalizedTitle.isNotEmpty) entry.normalizedTitle: entry,
-        };
+        _dictionaryEntriesByTitle = dictionaryRepository.buildTitleAliasIndex(entries, aliasIndex);
       });
     } catch (e) {
       debugPrint('load dictionary entries failed: $e');
