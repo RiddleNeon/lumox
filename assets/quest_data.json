@@ -1,366 +1,252 @@
 {
   "quests": [
     {
-      "id": 1,
-      "name": "Binary & Digital Logic",
-      "description": "# Binary & Digital Logic\n\nComputer arbeiten intern ausschließlich mit elektrischen Zuständen. Diese Zustände werden als `0` und `1` dargestellt.\n\n## Themen\n- Binärzahlen\n- Hexadezimalsystem\n- Bits & Bytes\n- Logische Operatoren (`AND`, `OR`, `NOT`, `XOR`)\n- Wahrheitstabellen\n\n## Warum wichtig?\nAlle höheren Konzepte der Informatik basieren auf diesen Grundlagen.\n\n## Lernziele\n- Zahlen zwischen Dezimal und Binär umwandeln\n- Einfache Logikschaltungen verstehen\n- Speichergrößen interpretieren",
-      "subject": "Computer Science",
-      "difficulty": 0.1,
-      "posX": 100,
-      "posY": 100,
-      "sizeX": 240,
-      "sizeY": 140
-    },
-    {
-      "id": 2,
-      "name": "Computer Architecture",
-      "description": "# Computer Architecture\n\nLerne den Aufbau eines Computersystems kennen.\n\n## Komponenten\n- CPU\n- RAM\n- Storage\n- Bus-Systeme\n- Register\n- Cache\n\n## Konzepte\n- Von-Neumann-Architektur\n- Fetch-Decode-Execute-Cycle\n- Taktfrequenz\n\n## Lernziele\n- Verstehen wie Programme ausgeführt werden\n- Unterschied zwischen RAM und Speicher erklären\n- CPU-Auslastung interpretieren",
-      "subject": "Computer Science",
-      "difficulty": 0.18,
-      "posX": 450,
-      "posY": 100,
-      "sizeX": 240,
-      "sizeY": 140
-    },
-    {
-      "id": 3,
-      "name": "Operating System Basics",
-      "description": "# Operating System Basics\n\nBetriebssysteme verwalten Hardware und Software.\n\n## Themen\n- Prozesse\n- Threads\n- Dateisysteme\n- Speicherverwaltung\n- Scheduling\n- Benutzerrechte\n\n## Beispiele\n- Linux\n- Windows\n- macOS\n\n## Lernziele\n- Prozesse verstehen\n- Unterschied zwischen Prozess und Thread erklären\n- Dateisystemnavigation beherrschen",
-      "subject": "Computer Science",
-      "difficulty": 0.25,
-      "posX": 800,
-      "posY": 100,
-      "sizeX": 260,
-      "sizeY": 150
-    },
-    {
-      "id": 4,
-      "name": "Command Line & Shell",
-      "description": "# Command Line & Shell\n\nDie Kommandozeile ist ein zentrales Werkzeug für Entwickler.\n\n## Themen\n- Shell-Befehle\n- Dateiverwaltung\n- Pipes\n- Umgebungsvariablen\n- Bash-Skripte\n\n## Typische Befehle\n```bash\nls\ncd\ngrep\ncat\nmkdir\n```\n\n## Lernziele\n- Terminal effizient nutzen\n- Einfache Shell-Skripte schreiben",
-      "subject": "Computer Science",
-      "difficulty": 0.22,
-      "posX": 800,
-      "posY": 320,
-      "sizeX": 240,
-      "sizeY": 150
-    },
-    {
-      "id": 5,
-      "name": "Programming Fundamentals",
-      "description": "# Programming Fundamentals\n\nGrundlagen des Programmierens.\n\n## Konzepte\n- Variablen\n- Datentypen\n- Bedingungen\n- Schleifen\n- Funktionen\n- Fehlerbehandlung\n\n## Beispiel\n```javascript\nfor(let i = 0; i < 5; i++) {\n  console.log(i)\n}\n```\n\n## Lernziele\n- Kleine Programme schreiben\n- Kontrollfluss verstehen",
-      "subject": "Computer Science",
-      "difficulty": 0.28,
-      "posX": 1150,
-      "posY": 100,
-      "sizeX": 260,
-      "sizeY": 160
-    },
-    {
-      "id": 6,
-      "name": "Object-Oriented Programming",
-      "description": "# Object-Oriented Programming\n\nOOP organisiert Code in Objekte und Klassen.\n\n## Konzepte\n- Klassen\n- Objekte\n- Vererbung\n- Polymorphismus\n- Kapselung\n\n## Lernziele\n- Klassen modellieren\n- Wiederverwendbaren Code schreiben",
-      "subject": "Computer Science",
-      "difficulty": 0.38,
-      "posX": 1500,
-      "posY": 100,
-      "sizeX": 260,
-      "sizeY": 150
-    },
-    {
-      "id": 7,
-      "name": "Data Structures",
-      "description": "# Data Structures\n\nDatenstrukturen organisieren Informationen effizient.\n\n## Themen\n- Arrays\n- Linked Lists\n- Stacks\n- Queues\n- Hash Maps\n- Trees\n- Graphs\n\n## Lernziele\n- Geeignete Datenstrukturen auswählen\n- Laufzeit analysieren",
-      "subject": "Computer Science",
-      "difficulty": 0.42,
-      "posX": 1500,
-      "posY": 320,
-      "sizeX": 260,
-      "sizeY": 160
-    },
-    {
-      "id": 8,
-      "name": "Algorithms",
-      "description": "# Algorithms\n\nAlgorithmen lösen Probleme systematisch.\n\n## Themen\n- Sortieralgorithmen\n- Suchalgorithmen\n- Rekursion\n- Divide & Conquer\n- Graphalgorithmen\n\n## Big-O\n- Zeitkomplexität\n- Speicherkomplexität\n\n## Lernziele\n- Effiziente Lösungen entwickeln\n- Komplexität bewerten",
-      "subject": "Computer Science",
-      "difficulty": 0.5,
-      "posX": 1850,
-      "posY": 320,
-      "sizeX": 260,
-      "sizeY": 160
-    },
-    {
-      "id": 9,
-      "name": "Databases & SQL",
-      "description": "# Databases & SQL\n\nDatenbanken speichern strukturierte Informationen.\n\n## Themen\n- Relationale Datenbanken\n- Tabellen\n- Beziehungen\n- SQL-Abfragen\n- Indizes\n- Normalisierung\n\n## Beispiel\n```sql\nSELECT * FROM users WHERE age > 18;\n```\n\n## Lernziele\n- Daten modellieren\n- SQL sicher anwenden",
-      "subject": "Computer Science",
-      "difficulty": 0.48,
-      "posX": 1850,
-      "posY": 100,
-      "sizeX": 270,
-      "sizeY": 160
-    },
-    {
-      "id": 10,
-      "name": "Networking Fundamentals",
-      "description": "# Networking Fundamentals\n\nComputer kommunizieren über Netzwerke.\n\n## Themen\n- TCP/IP\n- HTTP\n- DNS\n- Ports\n- Routing\n- Client-Server-Modell\n\n## Lernziele\n- Netzwerkrequests verstehen\n- APIs analysieren",
-      "subject": "Computer Science",
-      "difficulty": 0.45,
-      "posX": 2200,
-      "posY": 100,
-      "sizeX": 260,
-      "sizeY": 150
-    },
-    {
-      "id": 11,
-      "name": "Web Development Basics",
-      "description": "# Web Development Basics\n\nGrundlagen moderner Webanwendungen.\n\n## Technologien\n- HTML\n- CSS\n- JavaScript\n- Browser Rendering\n\n## Lernziele\n- Webseiten erstellen\n- DOM manipulieren\n- Formulare verarbeiten",
-      "subject": "Computer Science",
-      "difficulty": 0.52,
-      "posX": 2550,
-      "posY": 100,
-      "sizeX": 260,
-      "sizeY": 160
-    },
-    {
-      "id": 12,
-      "name": "Backend Development",
-      "description": "# Backend Development\n\nBackend-Systeme verarbeiten Daten und Business-Logik.\n\n## Themen\n- REST APIs\n- Authentifizierung\n- Sessions\n- Middleware\n- Serverlogik\n\n## Lernziele\n- APIs entwickeln\n- Datenbanken anbinden",
-      "subject": "Computer Science",
-      "difficulty": 0.62,
-      "posX": 2900,
-      "posY": 100,
-      "sizeX": 270,
-      "sizeY": 170
-    },
-    {
-      "id": 13,
-      "name": "Software Engineering",
-      "description": "# Software Engineering\n\nProfessionelle Entwicklung großer Softwaresysteme.\n\n## Themen\n- Clean Code\n- Design Patterns\n- Testing\n- Refactoring\n- Architekturprinzipien\n\n## Lernziele\n- Wartbaren Code schreiben\n- Softwareprojekte strukturieren",
-      "subject": "Computer Science",
-      "difficulty": 0.68,
-      "posX": 3250,
-      "posY": 320,
-      "sizeX": 270,
-      "sizeY": 170
-    },
-    {
-      "id": 14,
-      "name": "Version Control with Git",
-      "description": "# Version Control with Git\n\nGit ermöglicht kollaborative Softwareentwicklung.\n\n## Themen\n- Commits\n- Branches\n- Merge\n- Pull Requests\n- Konflikte\n\n## Lernziele\n- Projekte versionieren\n- Teamwork mit Git verstehen",
-      "subject": "Computer Science",
-      "difficulty": 0.4,
-      "posX": 2550,
-      "posY": 320,
+      "id": 100,
+      "name": "Grundlagen der Biologie",
+      "description": "Die Biologie beschäftigt sich mit Lebewesen und ihren Eigenschaften. Sie untersucht, wie Organismen aufgebaut sind, wie sie funktionieren und wie sie miteinander interagieren. Viele spätere Themen wie die Zelle. die DNA oder die Photosynthese bauen auf diesen Grundlagen auf.\n\n## Themen\n- Lebewesen\n- Organismen\n- Stoffwechsel\n- Wachstum\n- Fortpflanzung\n\n## Lernziele\n- Eigenschaften von Lebewesen erklären\n- Unterschiede zwischen belebter und unbelebter Natur verstehen\n- Grundbegriffe der Biologie anwenden",
+      "subject": "Biology",
+      "difficulty": 0.05,
       "sizeX": 250,
-      "sizeY": 150
-    },
-    {
-      "id": 15,
-      "name": "Cybersecurity Fundamentals",
-      "description": "# Cybersecurity Fundamentals\n\nSicherheit ist ein zentraler Bestandteil moderner Systeme.\n\n## Themen\n- Verschlüsselung\n- Hashing\n- Authentifizierung\n- Sicherheitslücken\n- OWASP Top 10\n\n## Lernziele\n- Häufige Angriffe verstehen\n- Sichere Systeme entwickeln",
-      "subject": "Computer Science",
-      "difficulty": 0.7,
-      "posX": 3600,
-      "posY": 100,
-      "sizeX": 280,
-      "sizeY": 170
-    },
-    {
-      "id": 16,
-      "name": "Cloud Computing",
-      "description": "# Cloud Computing\n\nCloud-Plattformen skalieren moderne Anwendungen.\n\n## Themen\n- Virtualisierung\n- Container\n- Docker\n- Kubernetes\n- Serverless\n- Skalierung\n\n## Lernziele\n- Anwendungen deployen\n- Cloud-Infrastruktur verstehen",
-      "subject": "Computer Science",
-      "difficulty": 0.78,
-      "posX": 3950,
-      "posY": 100,
-      "sizeX": 280,
       "sizeY": 180
     },
     {
-      "id": 17,
-      "name": "Distributed Systems",
-      "description": "# Distributed Systems\n\nVerteilte Systeme laufen auf mehreren Computern gleichzeitig.\n\n## Themen\n- Konsistenz\n- Replikation\n- Message Queues\n- Fault Tolerance\n- CAP-Theorem\n\n## Lernziele\n- Skalierbare Systeme verstehen\n- Verteilte Kommunikation modellieren",
-      "subject": "Computer Science",
-      "difficulty": 0.88,
-      "posX": 4300,
-      "posY": 100,
-      "sizeX": 290,
+      "id": 101,
+      "name": "Die Zelle",
+      "description": "Die Zelle ist die kleinste lebende Einheit eines Organismus. Alle Lebewesen bestehen aus einer oder mehreren Zellen. In einer Zelle laufen wichtige Prozesse wie Energiegewinnung, Stofftransport und Zellteilung ab. Das Verständnis der Zelle ist die Grundlage für fast alle Bereiche der modernen Biologie.\n\n## Themen\n- Zellaufbau\n- Zellmembran\n- Zellkern\n- Organellen\n- Cytoplasma\n\n## Lernziele\n- Bestandteile einer Zelle benennen\n- Funktionen wichtiger Zellorganellen erklären\n- Tier- und Pflanzenzellen vergleichen",
+      "subject": "Biology",
+      "difficulty": 0.08,
+      "sizeX": 260,
+      "sizeY": 190
+    },
+    {
+      "id": 102,
+      "name": "Zellmembran",
+      "description": "Die Zellmembran trennt das Innere der Zelle von ihrer Umgebung. Sie besteht hauptsächlich aus einer Doppelschicht aus Lipiden und kontrolliert, welche Stoffe die Zelle betreten oder verlassen dürfen. Dadurch schützt sie die Zelle und ermöglicht gleichzeitig Kommunikation mit anderen Zellen.\n\n## Themen\n- Lipiddoppelschicht\n- Transportproteine\n- Diffusion\n- Osmose\n- Selektive Permeabilität\n\n## Lernziele\n- Aufbau der Zellmembran beschreiben\n- Stofftransport erklären\n- Unterschied zwischen Diffusion und Osmose verstehen",
+      "subject": "Biology",
+      "difficulty": 0.12,
+      "sizeX": 260,
+      "sizeY": 200
+    },
+    {
+      "id": 103,
+      "name": "Zellkern",
+      "description": "Der Zellkern enthält die genetische Information einer Zelle. In ihm befindet sich die DNA. die Anweisungen für Aufbau und Funktion des Organismus enthält. Der Zellkern steuert außerdem viele Prozesse der Zelle, darunter Wachstum und Zellteilung.\n\n## Themen\n- DNA\n- Chromosomen\n- Genetische Information\n- Kernhülle\n\n## Lernziele\n- Aufgabe des Zellkerns erklären\n- Zusammenhang zwischen Zellkern und DNA verstehen\n- Chromosomen beschreiben",
+      "subject": "Biology",
+      "difficulty": 0.13,
+      "sizeX": 240,
       "sizeY": 180
     },
     {
-      "id": 18,
-      "name": "Artificial Intelligence Basics",
-      "description": "# Artificial Intelligence Basics\n\nEinführung in maschinelles Lernen und KI.\n\n## Themen\n- Supervised Learning\n- Neuronale Netze\n- Trainingsdaten\n- Overfitting\n- Modellevaluation\n\n## Lernziele\n- Grundprinzipien von ML verstehen\n- Einfache Modelle trainieren",
-      "subject": "Computer Science",
-      "difficulty": 0.82,
-      "posX": 3950,
-      "posY": 360,
-      "sizeX": 280,
+      "id": 104,
+      "name": "Mitochondrien",
+      "description": "Mitochondrien werden oft als Kraftwerke der Zelle bezeichnet. Sie wandeln Nährstoffe in nutzbare Energie um. Dieser Prozess ist wichtig, damit die Zelle wachsen, Stoffe transportieren und sich teilen kann. Besonders energiehungrige Zellen besitzen viele Mitochondrien.\n\n## Themen\n- Zellatmung\n- ATP\n- Energiegewinnung\n- Organellen\n\n## Lernziele\n- Funktion der Mitochondrien erklären\n- Zusammenhang zwischen Nahrung und Energie verstehen\n- ATP als Energieträger beschreiben",
+      "subject": "Biology",
+      "difficulty": 0.14,
+      "sizeX": 250,
       "sizeY": 180
+    },
+    {
+      "id": 105,
+      "name": "Chloroplasten",
+      "description": "Chloroplasten kommen hauptsächlich in Pflanzenzellen vor. Sie enthalten Chlorophyll und ermöglichen die Photosynthese. Dabei wird Lichtenergie genutzt, um aus Wasser und Kohlenstoffdioxid energiereiche Stoffe herzustellen. Ohne Chloroplasten könnten Pflanzen keine eigene Energie produzieren.\n\n## Themen\n- Chlorophyll\n- Lichtenergie\n- Photosynthese\n- Pflanzenzellen\n\n## Lernziele\n- Aufbau von Chloroplasten verstehen\n- Rolle von Chlorophyll erklären\n- Bedeutung der Photosynthese erkennen",
+      "subject": "Biology",
+      "difficulty": 0.15,
+      "sizeX": 260,
+      "sizeY": 190
+    },
+    {
+      "id": 106,
+      "name": "DNA",
+      "description": "Die DNA speichert die genetischen Informationen eines Lebewesens. Sie bestimmt Merkmale wie Augenfarbe oder bestimmte Eigenschaften von Pflanzen. Die DNA besteht aus vier Basen und ist in Form einer Doppelhelix aufgebaut. Fast jede Zelle eines Organismus enthält dieselbe DNA.\n\n## Themen\n- Doppelhelix\n- Basenpaare\n- Gene\n- Chromosomen\n\n## Lernziele\n- Aufbau der DNA beschreiben\n- Funktion genetischer Informationen erklären\n- Zusammenhang zwischen DNA und Genen verstehen",
+      "subject": "Biology",
+      "difficulty": 0.18,
+      "sizeX": 260,
+      "sizeY": 190
+    },
+    {
+      "id": 107,
+      "name": "Gene",
+      "description": "Gene sind bestimmte Abschnitte der DNA. Sie enthalten Bauanleitungen für Proteine und beeinflussen Eigenschaften eines Organismus. Manche Gene bestimmen sichtbare Merkmale, andere steuern wichtige Prozesse innerhalb der Zelle.\n\n## Themen\n- Erbinformation\n- Proteine\n- Vererbung\n- Mutation\n\n## Lernziele\n- Gene definieren\n- Zusammenhang zwischen Genen und Merkmalen erklären\n- Rolle von Genen bei Vererbung verstehen",
+      "subject": "Biology",
+      "difficulty": 0.2,
+      "sizeX": 250,
+      "sizeY": 180
+    },
+    {
+      "id": 108,
+      "name": "Chromosomen",
+      "description": "Chromosomen sind stark aufgewickelte Strukturen aus DNA. Sie befinden sich im Zellkern und tragen die Gene eines Organismus. Während der Zellteilung werden Chromosomen sichtbar und sorgen dafür, dass genetische Informationen korrekt verteilt werden.\n\n## Themen\n- DNA-Verpackung\n- Zellteilung\n- Genetik\n- Chromatiden\n\n## Lernziele\n- Chromosomen beschreiben\n- Zusammenhang zwischen DNA und Chromosomen verstehen\n- Bedeutung bei Zellteilung erklären",
+      "subject": "Biology",
+      "difficulty": 0.22,
+      "sizeX": 250,
+      "sizeY": 190
+    },
+    {
+      "id": 109,
+      "name": "Proteine",
+      "description": "Proteine sind wichtige Moleküle in allen Lebewesen. Sie übernehmen Aufgaben wie Stofftransport, Bewegung oder die Beschleunigung chemischer Reaktionen. Proteine werden nach den Bauplänen der Gene hergestellt und bestehen aus Aminosäuren.\n\n## Themen\n- Aminosäuren\n- Enzyme\n- Strukturproteine\n- Stoffwechsel\n\n## Lernziele\n- Aufbau von Proteinen erklären\n- Funktionen verschiedener Proteine unterscheiden\n- Zusammenhang zwischen Genen und Proteinen verstehen",
+      "subject": "Biology",
+      "difficulty": 0.24,
+      "sizeX": 260,
+      "sizeY": 190
+    },
+    {
+      "id": 110,
+      "name": "Enzyme",
+      "description": "Enzyme sind spezielle Proteine. die chemische Reaktionen beschleunigen. Ohne Enzyme würden viele lebenswichtige Prozesse zu langsam ablaufen. Jedes Enzym passt nur zu bestimmten Stoffen und arbeitet daher sehr gezielt.\n\n## Themen\n- Katalysatoren\n- Substrat\n- Stoffwechsel\n- Reaktionsgeschwindigkeit\n\n## Lernziele\n- Funktionsweise von Enzymen erklären\n- Schlüssel-Schloss-Prinzip verstehen\n- Einfluss von Temperatur auf Enzyme beschreiben",
+      "subject": "Biology",
+      "difficulty": 0.27,
+      "sizeX": 260,
+      "sizeY": 200
+    },
+    {
+      "id": 111,
+      "name": "Photosynthese",
+      "description": "Die Photosynthese ist ein Prozess, bei dem Pflanzen Lichtenergie in chemische Energie umwandeln. Dabei entstehen aus Wasser und Kohlenstoffdioxid Zucker und Sauerstoff. Die Photosynthese findet in den Chloroplasten statt und ist eine der wichtigsten Grundlagen des Lebens auf der Erde.\n\n## Themen\n- Lichtreaktion\n- Glucose\n- Sauerstoff\n- Chlorophyll\n\n## Lernziele\n- Ablauf der Photosynthese erklären\n- Bedeutung für Pflanzen und Tiere verstehen\n- Reaktionsgleichung interpretieren",
+      "subject": "Biology",
+      "difficulty": 0.3,
+      "sizeX": 270,
+      "sizeY": 210
+    },
+    {
+      "id": 112,
+      "name": "Zellatmung",
+      "description": "Die Zellatmung beschreibt die Energiegewinnung in den Mitochondrien. Dabei wird Glucose mit Sauerstoff abgebaut, um ATP zu erzeugen. Dieser Prozess liefert Energie für fast alle Aktivitäten einer Zelle.\n\n## Themen\n- ATP\n- Energiegewinnung\n- Sauerstoff\n- Glucose\n\n## Lernziele\n- Ablauf der Zellatmung beschreiben\n- Unterschied zwischen Zellatmung und Photosynthese verstehen\n- ATP als Energiequelle erklären",
+      "subject": "Biology",
+      "difficulty": 0.32,
+      "sizeX": 260,
+      "sizeY": 200
+    },
+    {
+      "id": 113,
+      "name": "ATP",
+      "description": "ATP ist der wichtigste kurzfristige Energieträger in der Zelle. Energie aus Nahrung oder Photosynthese wird in ATP gespeichert und später für Prozesse wie Bewegung oder Stofftransport genutzt. Ohne ATP könnten Zellen nicht funktionieren.\n\n## Themen\n- Energieübertragung\n- Phosphatgruppen\n- Zellstoffwechsel\n\n## Lernziele\n- ATP definieren\n- Rolle von ATP im Stoffwechsel erklären\n- Zusammenhang zwischen Zellatmung und ATP verstehen",
+      "subject": "Biology",
+      "difficulty": 0.33,
+      "sizeX": 240,
+      "sizeY": 180
+    },
+    {
+      "id": 114,
+      "name": "Mitose",
+      "description": "Die Mitose ist eine Form der Zellteilung. Dabei entstehen aus einer Zelle zwei genetisch identische Tochterzellen. Dieser Prozess ist wichtig für Wachstum, Heilung und die Erneuerung von Gewebe.\n\n## Themen\n- Zellteilung\n- Chromosomen\n- Tochterzellen\n- Zellzyklus\n\n## Lernziele\n- Phasen der Mitose beschreiben\n- Bedeutung der Mitose erklären\n- Chromosomenbewegung verstehen",
+      "subject": "Biology",
+      "difficulty": 0.36,
+      "sizeX": 260,
+      "sizeY": 200
+    },
+    {
+      "id": 115,
+      "name": "Mutation",
+      "description": "Eine Mutation ist eine Veränderung der DNA. Manche Mutationen haben keine Auswirkungen, andere verändern Eigenschaften eines Organismus deutlich. Mutationen spielen eine wichtige Rolle bei Evolution und genetischen Krankheiten.\n\n## Themen\n- Genveränderungen\n- Vererbung\n- Evolution\n- DNA-Schäden\n\n## Lernziele\n- Mutation definieren\n- Ursachen von Mutationen nennen\n- Auswirkungen von Mutationen erklären",
+      "subject": "Biology",
+      "difficulty": 0.38,
+      "sizeX": 250,
+      "sizeY": 190
     }
   ],
   "connections": [
     {
-      "fromQuestId": 1,
-      "toQuestId": 2,
+      "fromQuestId": 100,
+      "toQuestId": 101,
+      "type": "prerequisite",
+      "xpRequirement": 20
+    },
+    {
+      "fromQuestId": 101,
+      "toQuestId": 102,
+      "type": "prerequisite",
+      "xpRequirement": 25
+    },
+    {
+      "fromQuestId": 101,
+      "toQuestId": 103,
+      "type": "prerequisite",
+      "xpRequirement": 25
+    },
+    {
+      "fromQuestId": 101,
+      "toQuestId": 104,
+      "type": "prerequisite",
+      "xpRequirement": 30
+    },
+    {
+      "fromQuestId": 101,
+      "toQuestId": 105,
+      "type": "prerequisite",
+      "xpRequirement": 30
+    },
+    {
+      "fromQuestId": 103,
+      "toQuestId": 106,
       "type": "prerequisite",
       "xpRequirement": 40
     },
     {
-      "fromQuestId": 2,
-      "toQuestId": 3,
+      "fromQuestId": 106,
+      "toQuestId": 107,
       "type": "prerequisite",
-      "xpRequirement": 80
+      "xpRequirement": 45
     },
     {
-      "fromQuestId": 2,
-      "toQuestId": 4,
+      "fromQuestId": 106,
+      "toQuestId": 108,
+      "type": "support",
+      "xpRequirement": 35
+    },
+    {
+      "fromQuestId": 107,
+      "toQuestId": 109,
+      "type": "prerequisite",
+      "xpRequirement": 55
+    },
+    {
+      "fromQuestId": 109,
+      "toQuestId": 110,
+      "type": "prerequisite",
+      "xpRequirement": 65
+    },
+    {
+      "fromQuestId": 105,
+      "toQuestId": 111,
       "type": "prerequisite",
       "xpRequirement": 70
     },
     {
-      "fromQuestId": 3,
-      "toQuestId": 5,
+      "fromQuestId": 104,
+      "toQuestId": 112,
       "type": "prerequisite",
-      "xpRequirement": 120
+      "xpRequirement": 75
     },
     {
-      "fromQuestId": 4,
-      "toQuestId": 5,
+      "fromQuestId": 111,
+      "toQuestId": 113,
       "type": "support",
       "xpRequirement": 60
     },
     {
-      "fromQuestId": 5,
-      "toQuestId": 6,
+      "fromQuestId": 112,
+      "toQuestId": 113,
       "type": "prerequisite",
-      "xpRequirement": 150
+      "xpRequirement": 80
     },
     {
-      "fromQuestId": 5,
-      "toQuestId": 7,
+      "fromQuestId": 108,
+      "toQuestId": 114,
       "type": "prerequisite",
-      "xpRequirement": 150
+      "xpRequirement": 90
     },
     {
-      "fromQuestId": 7,
-      "toQuestId": 8,
+      "fromQuestId": 106,
+      "toQuestId": 115,
       "type": "prerequisite",
-      "xpRequirement": 220
+      "xpRequirement": 95
     },
     {
-      "fromQuestId": 5,
-      "toQuestId": 9,
-      "type": "prerequisite",
-      "xpRequirement": 180
-    },
-    {
-      "fromQuestId": 3,
-      "toQuestId": 10,
-      "type": "prerequisite",
-      "xpRequirement": 170
-    },
-    {
-      "fromQuestId": 5,
-      "toQuestId": 11,
-      "type": "prerequisite",
-      "xpRequirement": 200
-    },
-    {
-      "fromQuestId": 10,
-      "toQuestId": 11,
+      "fromQuestId": 107,
+      "toQuestId": 115,
       "type": "support",
-      "xpRequirement": 120
-    },
-    {
-      "fromQuestId": 9,
-      "toQuestId": 12,
-      "type": "prerequisite",
-      "xpRequirement": 260
-    },
-    {
-      "fromQuestId": 11,
-      "toQuestId": 12,
-      "type": "prerequisite",
-      "xpRequirement": 240
-    },
-    {
-      "fromQuestId": 14,
-      "toQuestId": 13,
-      "type": "support",
-      "xpRequirement": 120
-    },
-    {
-      "fromQuestId": 6,
-      "toQuestId": 13,
-      "type": "prerequisite",
-      "xpRequirement": 260
-    },
-    {
-      "fromQuestId": 8,
-      "toQuestId": 13,
-      "type": "support",
-      "xpRequirement": 200
-    },
-    {
-      "fromQuestId": 11,
-      "toQuestId": 14,
-      "type": "recommended",
-      "xpRequirement": 100
-    },
-    {
-      "fromQuestId": 10,
-      "toQuestId": 15,
-      "type": "prerequisite",
-      "xpRequirement": 260
-    },
-    {
-      "fromQuestId": 12,
-      "toQuestId": 15,
-      "type": "support",
-      "xpRequirement": 240
-    },
-    {
-      "fromQuestId": 12,
-      "toQuestId": 16,
-      "type": "prerequisite",
-      "xpRequirement": 320
-    },
-    {
-      "fromQuestId": 13,
-      "toQuestId": 16,
-      "type": "support",
-      "xpRequirement": 280
-    },
-    {
-      "fromQuestId": 16,
-      "toQuestId": 17,
-      "type": "prerequisite",
-      "xpRequirement": 420
-    },
-    {
-      "fromQuestId": 8,
-      "toQuestId": 17,
-      "type": "support",
-      "xpRequirement": 350
-    },
-    {
-      "fromQuestId": 7,
-      "toQuestId": 18,
-      "type": "prerequisite",
-      "xpRequirement": 300
-    },
-    {
-      "fromQuestId": 8,
-      "toQuestId": 18,
-      "type": "support",
-      "xpRequirement": 320
-    },
-    {
-      "fromQuestId": 13,
-      "toQuestId": 18,
-      "type": "recommended",
-      "xpRequirement": 240
+      "xpRequirement": 70
     }
   ]
 }

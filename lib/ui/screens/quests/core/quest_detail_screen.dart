@@ -161,25 +161,9 @@ class _QuestDetailScreenState extends State<QuestDetailScreen> {
   void _toggleEditMode() => setState(() => _editMode = !_editMode);
 
   void onDelete() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Quest'),
-        content: const Text('Are you sure you want to delete this quest? This action cannot be undone.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {});
-              Navigator.pop(context);
-              widget.onDelete?.call(widget.quest);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
+    setState(() {
+      widget.onDelete?.call(widget.quest);
+    });
   }
 
   @override
