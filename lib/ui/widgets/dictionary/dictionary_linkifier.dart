@@ -142,6 +142,7 @@ class DictionaryMarkdownBody extends StatelessWidget {
       for (final entry in entries) entry.route: entry,
     };
     final entriesBySubjectTitle = _buildSubjectTitleIndex(entriesByTitle);
+    final entriesBySubjectId = _buildSubjectIdIndex(entries);
 
     final effectiveStyleSheet = _applyLinkStyle(styleSheet, linkColor, context);
 
@@ -150,7 +151,7 @@ class DictionaryMarkdownBody extends StatelessWidget {
       styleSheet: effectiveStyleSheet,
       onTapLink: (text, href, title) {
         if (href == null || href.trim().isEmpty) return;
-        final subjectEntry = _entryForSubjectRef(href, entriesBySubjectTitle);
+        final subjectEntry = _entryForSubjectRef(href, entriesBySubjectTitle, entriesBySubjectId);
         if (subjectEntry != null) {
           onTapEntry(subjectEntry);
           return;
@@ -192,16 +193,37 @@ DictionaryEntry? _entryForHref(String href, Map<String, DictionaryEntry> entries
   return null;
 }
 
-DictionaryEntry? _entryForSubjectRef(String href, Map<String, DictionaryEntry> entriesBySubjectTitle) {
+DictionaryEntry? _entryForSubjectRef(
+  String href,
+  Map<String, DictionaryEntry> entriesBySubjectTitle,
+  Map<String, DictionaryEntry> entriesBySubjectId,
+) {
   final trimmed = href.trim();
   if (trimmed.isEmpty) return null;
   if (trimmed.startsWith('/') || trimmed.contains('://')) return null;
   final separatorIndex = trimmed.indexOf(':');
   if (separatorIndex <= 0 || separatorIndex >= trimmed.length - 1) return null;
   final subject = Uri.decodeComponent(trimmed.substring(0, separatorIndex)).trim().toLowerCase();
-  final entryKey = Uri.decodeComponent(trimmed.substring(separatorIndex + 1)).trim().toLowerCase();
-  if (subject.isEmpty || entryKey.isEmpty) return null;
+  final rawKey = Uri.decodeComponent(trimmed.substring(separatorIndex + 1)).trim();
+  if (subject.isEmpty || rawKey.isEmpty) return null;
+
+  final numericId = int.tryParse(rawKey);
+  if (numericId != null) {
+    return entriesBySubjectId['$subject:$numericId'];
+  }
+
+  final entryKey = rawKey.toLowerCase();
   return entriesBySubjectTitle['$subject:$entryKey'];
+}
+
+Map<String, DictionaryEntry> _buildSubjectIdIndex(List<DictionaryEntry> entries) {
+  final index = <String, DictionaryEntry>{};
+  for (final entry in entries) {
+    final subject = entry.subject.trim().toLowerCase();
+    if (subject.isEmpty) continue;
+    index.putIfAbsent('$subject:${entry.questId}', () => entry);
+  }
+  return index;
 }
 
 Map<String, DictionaryEntry> _buildSubjectTitleIndex(Map<String, DictionaryEntry> entriesByTitle) {
@@ -311,7 +333,7 @@ String _replaceMatchesWithSubjectRef(
     if (entry == null) continue;
 
     buffer.write(data.substring(cursor, start));
-    buffer.write('[$matched](${entry.subject}:${entry.title})');
+    buffer.write('[$matched](${entry.subject}:${entry.questId})');
     cursor = end;
   }
 

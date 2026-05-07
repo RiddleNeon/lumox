@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -8,8 +9,8 @@ import 'package:lumox/logic/quests/quest_change_manager.dart';
 import 'package:lumox/logic/quests/quest_system.dart';
 import 'package:lumox/logic/repositories/dictionary_repository.dart';
 import 'package:lumox/logic/repositories/quest_title_alias_repository.dart';
-import 'package:lumox/util/extensions/num_distance.dart';
 import 'package:lumox/ui/widgets/dictionary/dictionary_linkifier.dart';
+import 'package:lumox/util/extensions/num_distance.dart';
 
 import '../../../theme/theme_ui_values.dart';
 
@@ -200,16 +201,13 @@ class _QuestDetailScreenState extends State<QuestDetailScreen> {
                     editMode: _editMode,
                     controller: _descriptionCtrl,
                     description: _editedQuest.description,
+                    subject: _editedQuest.subject,
                   ),
                 ),
                 const SizedBox(height: 16),
                 _SectionCard(
                   colorScheme: colorScheme,
-                  child: _AliasesSection(
-                    questId: _editedQuest.id,
-                    colorScheme: colorScheme,
-                    editMode: _editMode,
-                  ),
+                  child: _AliasesSection(questId: _editedQuest.id, colorScheme: colorScheme, editMode: _editMode),
                 ),
                 const SizedBox(height: 16),
                 _SectionCard(
@@ -256,362 +254,6 @@ class _QuestDetailScreenState extends State<QuestDetailScreen> {
               ]),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── App Bar ───────────────────────────────────────────────────────────────────
-
-class _QuestSliverAppBar extends StatelessWidget {
-  final Quest quest;
-  final ColorScheme colorScheme;
-  final bool debugMode;
-  final bool editMode;
-  final TextEditingController nameController;
-  final VoidCallback? onToggleEditMode;
-  final void Function(Color newColor)? onColorChanged;
-
-  const _QuestSliverAppBar({
-    required this.quest,
-    required this.colorScheme,
-    required this.debugMode,
-    required this.editMode,
-    required this.nameController,
-    this.onToggleEditMode,
-    this.onColorChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SliverAppBar(
-      expandedHeight: 200,
-      pinned: true,
-      stretch: true,
-      backgroundColor: colorScheme.primaryContainer,
-      foregroundColor: colorScheme.onPrimaryContainer,
-      actions: [
-        if (debugMode && onToggleEditMode != null)
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: IconButton(
-                key: ValueKey(editMode),
-                icon: Icon(editMode ? Icons.edit_off_rounded : Icons.edit_rounded),
-                tooltip: editMode ? 'Exit Edit Mode' : 'Edit Mode',
-                onPressed: onToggleEditMode,
-                style: IconButton.styleFrom(backgroundColor: editMode ? colorScheme.onPrimaryContainer.withValues(alpha: 0.18) : Colors.transparent),
-              ),
-            ),
-          ),
-      ],
-      flexibleSpace: FlexibleSpaceBar(
-        stretchModes: const [StretchMode.zoomBackground, StretchMode.fadeTitle],
-        // Extra right padding in debug mode to avoid overlap with the action icon.
-        titlePadding: EdgeInsets.fromLTRB(60, 0, debugMode ? 56 : 20, 16),
-        title: editMode
-            ? TextField(
-                controller: nameController,
-                style: TextStyle(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w700, fontSize: 20, height: 1.2),
-                maxLines: 1,
-                cursorColor: colorScheme.onPrimaryContainer,
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                  hintText: 'Quest-Name',
-                  filled: false,
-                  hintStyle: TextStyle(color: colorScheme.onPrimaryContainer.withValues(alpha: 0.35), fontSize: 20),
-                ),
-              )
-            : Text(
-                quest.name,
-                style: TextStyle(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w700, fontSize: 20, height: 1.2),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-        background: Stack(
-          fit: StackFit.expand,
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [colorScheme.primaryContainer, colorScheme.secondaryContainer],
-                ),
-              ),
-            ),
-            CustomPaint(painter: _GridPatternPainter(colorScheme.onPrimaryContainer.withValues(alpha: 0.06))),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: 80,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, colorScheme.primaryContainer.withValues(alpha: 0.85)],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 60,
-              right: 16,
-              child: _SubjectBadge(subject: quest.subject, colorScheme: colorScheme),
-            ),
-            if (debugMode)
-              Positioned(
-                top: 64,
-                left: 20,
-                child: Text(
-                  '#${quest.id}',
-                  style: TextStyle(color: colorScheme.onPrimaryContainer.withValues(alpha: 0.5), fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 1.5),
-                ),
-              ),
-            if(editMode)
-              IconButton(
-                hoverColor: Colors.transparent,
-                onPressed: () async {
-                  Color? temp;
-                  await showDialog<void>(
-                    context: context,
-                    builder: (c2) => AlertDialog(
-                      title: const Text('Primary Seed'),
-                      content: SizedBox(
-                        width: 300,
-                        child: SingleChildScrollView(
-                          child: ColorPicker(
-                            pickerColor: quest.color,
-                            onColorChanged: (c) => temp = c,
-                            enableAlpha: false,
-                            portraitOnly: true,
-                            labelTypes: const [ColorLabelType.hex],
-                          ),
-                        ),
-                      ),
-                      actions: [FilledButton(onPressed: () => Navigator.pop(c2), child: const Text('OK'))],
-                    ),
-                  );
-                  if (temp != null) {
-                    onColorChanged?.call(temp!);
-                  }
-                },
-                icon: const Icon(Icons.colorize_rounded),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GridPatternPainter extends CustomPainter {
-  final Color color;
-
-  _GridPatternPainter(this.color);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1;
-    const step = 32.0;
-    for (double x = 0; x < size.width; x += step) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = 0; y < size.height; y += step) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_GridPatternPainter old) => old.color != color;
-}
-
-class _SubjectBadge extends StatelessWidget {
-  final String subject;
-  final ColorScheme colorScheme;
-
-  const _SubjectBadge({required this.subject, required this.colorScheme});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: colorScheme.primary,
-        borderRadius: BorderRadius.circular(context.uiRadiusLg),
-        boxShadow: [BoxShadow(color: colorScheme.primary.withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 3))],
-      ),
-      child: Row(
-        children: [
-          Text(
-            subject.toUpperCase(),
-            style: TextStyle(color: colorScheme.onPrimary, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.2),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Status Row ────────────────────────────────────────────────────────────────
-
-class _StatusRow extends StatelessWidget {
-  final Quest quest;
-  final ColorScheme colorScheme;
-
-  final QuestSystem questSystem;
-
-  const _StatusRow({required this.quest, required this.colorScheme, required this.questSystem});
-
-  @override
-  Widget build(BuildContext context) {
-    final isCompleted = quest.isCompleted;
-
-    return Row(
-      children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: isCompleted ? colorScheme.tertiaryContainer : colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(context.uiRadiusLg),
-            border: Border.all(color: isCompleted ? colorScheme.tertiary : colorScheme.outline.withValues(alpha: 0.4), width: 1.5),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isCompleted ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                size: 16,
-                color: isCompleted ? colorScheme.tertiary : colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                isCompleted ? 'Done' : 'Open',
-                style: TextStyle(
-                  color: isCompleted ? colorScheme.onTertiaryContainer : colorScheme.onSurfaceVariant,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 10),
-        if (questSystem.prerequisiteIds(quest.id).isNotEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(context.uiRadiusLg),
-              border: Border.all(color: colorScheme.outline.withValues(alpha: 0.4), width: 1.5),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.lock_outline_rounded, size: 15, color: colorScheme.onSurfaceVariant),
-                const SizedBox(width: 6),
-                Text(
-                  '${questSystem.prerequisiteIds(quest.id).length} Prerequisite${questSystem.prerequisiteIds(quest.id).length > 1 ? 's' : ''}',
-                  style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13, fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-// ── Section Card ──────────────────────────────────────────────────────────────
-
-class _SectionCard extends StatelessWidget {
-  final Widget child;
-  final ColorScheme colorScheme;
-
-  const _SectionCard({required this.child, required this.colorScheme});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(context.uiRadiusMd),
-        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: child,
-    );
-  }
-}
-
-// ── Description ───────────────────────────────────────────────────────────────
-
-class _DescriptionSection extends StatelessWidget {
-  final ColorScheme colorScheme;
-  final bool editMode;
-  final TextEditingController controller;
-  final String description;
-
-  const _DescriptionSection({required this.colorScheme, required this.editMode, required this.controller, required this.description});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionLabel(label: 'Description', colorScheme: colorScheme),
-          const SizedBox(height: 10),
-          if (editMode)
-            TextField(
-              controller: controller,
-              style: TextStyle(color: colorScheme.onSurface, fontSize: 15, height: 1.6),
-              maxLines: null,
-              minLines: 3,
-              decoration: _editInputDecoration(context, colorScheme, hint: 'Quest description…'),
-            )
-          else
-            FutureBuilder<List<dynamic>>(
-              future: Future.wait([
-                dictionaryRepository.fetchEntries(),
-                dictionaryRepository.fetchAliasIndex(),
-              ]),
-              builder: (context, snapshot) {
-                final entries = snapshot.data != null ? snapshot.data![0] as List<DictionaryEntry> : const <DictionaryEntry>[];
-                final aliasIndex = snapshot.data != null ? snapshot.data![1] as Map<String, int> : const <String, int>{};
-                if (entries.isEmpty) {
-                  return MarkdownBody(
-                    data: description,
-                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(code: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                  );
-                }
-
-                return DictionaryMarkdownBody(
-                  data: description,
-                  entries: entries,
-                  titleIndex: dictionaryRepository.buildTitleAliasIndex(entries, aliasIndex),
-                  linkColor: colorScheme.primary,
-                  onTapEntry: (entry) => showDictionaryEntryPreviewSheet(
-                    context,
-                    entry: entry,
-                    onOpenQuest: () => context.go(entry.questRoute),
-                    onOpenDictionary: () => context.go(entry.route),
-                  ),
-                  styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(code: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                );
-              },
-            ),
-          //Text(description, style: TextStyle(color: colorScheme.onSurface, fontSize: 15, height: 1.6)),
         ],
       ),
     );
@@ -684,7 +326,7 @@ class _AliasesSectionState extends State<_AliasesSection> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-    
+
   }
 
   Future<void> _removeAlias(String alias) async {
@@ -719,10 +361,10 @@ class _AliasesSectionState extends State<_AliasesSection> {
               children: _aliases
                   .map(
                     (alias) => InputChip(
-                      label: Text(alias),
-                      onDeleted: _saving ? null : () => _removeAlias(alias),
-                    ),
-                  )
+                  label: Text(alias),
+                  onDeleted: _saving ? null : () => _removeAlias(alias),
+                ),
+              )
                   .toList(),
             ),
           if (_errorMessage != null) ...[
@@ -942,6 +584,738 @@ class _PrerequisitesSection extends StatelessWidget {
     );
   }
 }
+// ── App Bar ───────────────────────────────────────────────────────────────────
+
+class _QuestSliverAppBar extends StatelessWidget {
+  final Quest quest;
+  final ColorScheme colorScheme;
+  final bool debugMode;
+  final bool editMode;
+  final TextEditingController nameController;
+  final VoidCallback? onToggleEditMode;
+  final void Function(Color newColor)? onColorChanged;
+
+  const _QuestSliverAppBar({
+    required this.quest,
+    required this.colorScheme,
+    required this.debugMode,
+    required this.editMode,
+    required this.nameController,
+    this.onToggleEditMode,
+    this.onColorChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverAppBar(
+      expandedHeight: 200,
+      pinned: true,
+      stretch: true,
+      backgroundColor: colorScheme.primaryContainer,
+      foregroundColor: colorScheme.onPrimaryContainer,
+      actions: [
+        if (debugMode && onToggleEditMode != null)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: IconButton(
+                key: ValueKey(editMode),
+                icon: Icon(editMode ? Icons.edit_off_rounded : Icons.edit_rounded),
+                tooltip: editMode ? 'Exit Edit Mode' : 'Edit Mode',
+                onPressed: onToggleEditMode,
+                style: IconButton.styleFrom(backgroundColor: editMode ? colorScheme.onPrimaryContainer.withValues(alpha: 0.18) : Colors.transparent),
+              ),
+            ),
+          ),
+      ],
+      flexibleSpace: FlexibleSpaceBar(
+        stretchModes: const [StretchMode.zoomBackground, StretchMode.fadeTitle],
+        // Extra right padding in debug mode to avoid overlap with the action icon.
+        titlePadding: EdgeInsets.fromLTRB(60, 0, debugMode ? 56 : 20, 16),
+        title: editMode
+            ? TextField(
+                controller: nameController,
+                style: TextStyle(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w700, fontSize: 20, height: 1.2),
+                maxLines: 1,
+                cursorColor: colorScheme.onPrimaryContainer,
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                  hintText: 'Quest-Name',
+                  filled: false,
+                  hintStyle: TextStyle(color: colorScheme.onPrimaryContainer.withValues(alpha: 0.35), fontSize: 20),
+                ),
+              )
+            : Text(
+                quest.name,
+                style: TextStyle(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w700, fontSize: 20, height: 1.2),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [colorScheme.primaryContainer, colorScheme.secondaryContainer],
+                ),
+              ),
+            ),
+            CustomPaint(painter: _GridPatternPainter(colorScheme.onPrimaryContainer.withValues(alpha: 0.06))),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: 80,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, colorScheme.primaryContainer.withValues(alpha: 0.85)],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 60,
+              right: 16,
+              child: _SubjectBadge(subject: quest.subject, colorScheme: colorScheme),
+            ),
+            if (debugMode)
+              Positioned(
+                top: 64,
+                left: 20,
+                child: Text(
+                  '#${quest.id}',
+                  style: TextStyle(color: colorScheme.onPrimaryContainer.withValues(alpha: 0.5), fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 1.5),
+                ),
+              ),
+            if (editMode)
+              IconButton(
+                hoverColor: Colors.transparent,
+                onPressed: () async {
+                  Color? temp;
+                  await showDialog<void>(
+                    context: context,
+                    builder: (c2) => AlertDialog(
+                      title: const Text('Primary Seed'),
+                      content: SizedBox(
+                        width: 300,
+                        child: SingleChildScrollView(
+                          child: ColorPicker(
+                            pickerColor: quest.color,
+                            onColorChanged: (c) => temp = c,
+                            enableAlpha: false,
+                            portraitOnly: true,
+                            labelTypes: const [ColorLabelType.hex],
+                          ),
+                        ),
+                      ),
+                      actions: [FilledButton(onPressed: () => Navigator.pop(c2), child: const Text('OK'))],
+                    ),
+                  );
+                  if (temp != null) {
+                    onColorChanged?.call(temp!);
+                  }
+                },
+                icon: const Icon(Icons.colorize_rounded),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GridPatternPainter extends CustomPainter {
+  final Color color;
+
+  _GridPatternPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    const step = 32.0;
+    for (double x = 0; x < size.width; x += step) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (double y = 0; y < size.height; y += step) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GridPatternPainter old) => old.color != color;
+}
+
+class _SubjectBadge extends StatelessWidget {
+  final String subject;
+  final ColorScheme colorScheme;
+
+  const _SubjectBadge({required this.subject, required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.primary,
+        borderRadius: BorderRadius.circular(context.uiRadiusLg),
+        boxShadow: [BoxShadow(color: colorScheme.primary.withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 3))],
+      ),
+      child: Row(
+        children: [
+          Text(
+            subject.toUpperCase(),
+            style: TextStyle(color: colorScheme.onPrimary, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.2),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Status Row ────────────────────────────────────────────────────────────────
+
+class _StatusRow extends StatelessWidget {
+  final Quest quest;
+  final ColorScheme colorScheme;
+
+  final QuestSystem questSystem;
+
+  const _StatusRow({required this.quest, required this.colorScheme, required this.questSystem});
+
+  @override
+  Widget build(BuildContext context) {
+    final isCompleted = quest.isCompleted;
+
+    return Row(
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: isCompleted ? colorScheme.tertiaryContainer : colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(context.uiRadiusLg),
+            border: Border.all(color: isCompleted ? colorScheme.tertiary : colorScheme.outline.withValues(alpha: 0.4), width: 1.5),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isCompleted ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                size: 16,
+                color: isCompleted ? colorScheme.tertiary : colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                isCompleted ? 'Done' : 'Open',
+                style: TextStyle(
+                  color: isCompleted ? colorScheme.onTertiaryContainer : colorScheme.onSurfaceVariant,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        if (questSystem.prerequisiteIds(quest.id).isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(context.uiRadiusLg),
+              border: Border.all(color: colorScheme.outline.withValues(alpha: 0.4), width: 1.5),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.lock_outline_rounded, size: 15, color: colorScheme.onSurfaceVariant),
+                const SizedBox(width: 6),
+                Text(
+                  '${questSystem.prerequisiteIds(quest.id).length} Prerequisite${questSystem.prerequisiteIds(quest.id).length > 1 ? 's' : ''}',
+                  style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ── Section Card ──────────────────────────────────────────────────────────────
+
+class _SectionCard extends StatelessWidget {
+  final Widget child;
+  final ColorScheme colorScheme;
+
+  const _SectionCard({required this.child, required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(context.uiRadiusMd),
+        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: child,
+    );
+  }
+}
+
+// ── Description ───────────────────────────────────────────────────────────────
+
+class _DescriptionSection extends StatefulWidget {
+  final ColorScheme colorScheme;
+  final bool editMode;
+  final TextEditingController controller;
+  final String description;
+  final String subject;
+
+  const _DescriptionSection({required this.colorScheme, required this.editMode, required this.controller, required this.description, required this.subject});
+
+  @override
+  State<_DescriptionSection> createState() => _DescriptionSectionState();
+}
+
+enum _DescriptionEditView { raw, linked, preview }
+
+class _DescriptionSectionState extends State<_DescriptionSection> {
+  _DescriptionEditView _viewMode = _DescriptionEditView.raw;
+  late final _LinkedTextController _linkController;
+  bool _syncingControllers = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _linkController = _LinkedTextController(
+      onTapLink: (range, linkText, linkTarget) {
+        _editLinkAtRange(range: range, linkText: linkText, linkTarget: linkTarget);
+      },
+    );
+    _linkController.value = widget.controller.value;
+    widget.controller.addListener(_syncFromRawController);
+    _linkController.addListener(_syncFromLinkController);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_syncFromRawController);
+    _linkController.removeListener(_syncFromLinkController);
+    _linkController.dispose();
+    super.dispose();
+  }
+
+  void _syncFromRawController() {
+    if (_syncingControllers) return;
+    _syncingControllers = true;
+    if (_linkController.value != widget.controller.value) {
+      _linkController.value = widget.controller.value;
+    }
+    _syncingControllers = false;
+  }
+
+  void _syncFromLinkController() {
+    if (_syncingControllers) return;
+    _syncingControllers = true;
+    if (widget.controller.value != _linkController.value) {
+      widget.controller.value = _linkController.value;
+    }
+    _syncingControllers = false;
+  }
+
+  TextEditingController get _activeController => _viewMode == _DescriptionEditView.linked ? _linkController : widget.controller;
+
+  TextRange? _wordRangeAtCursor(String text, int cursorOffset) {
+    if (cursorOffset < 0 || cursorOffset > text.length) return null;
+    final wordRegex = RegExp(r'[A-Za-z0-9_]+');
+    for (final match in wordRegex.allMatches(text)) {
+      if (cursorOffset >= match.start && cursorOffset <= match.end) {
+        return TextRange(start: match.start, end: match.end);
+      }
+    }
+    return null;
+  }
+
+  Future<void> _autoLinkDescription() async {
+    final normalizedSubject = widget.subject.trim();
+    if (normalizedSubject.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Set a subject before auto-linking.')));
+      return;
+    }
+
+    final currentText = _activeController.text;
+    final entries = await dictionaryRepository.fetchEntries(subject: normalizedSubject);
+    final aliasIndex = await dictionaryRepository.fetchAliasIndex();
+    if (!mounted) return;
+
+    final titleIndex = dictionaryRepository.buildTitleAliasIndex(entries, aliasIndex);
+    final updated = linkifyDictionaryEntriesForSubject(data: currentText, entriesByTitle: titleIndex, subject: normalizedSubject);
+
+    if (updated == currentText) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No new links added for this subject.')));
+      return;
+    }
+
+    _activeController.text = updated;
+  }
+
+  Future<void> _linkSelectionToEntry({TextRange? overrideRange, String? overrideText}) async {
+    final normalizedSubject = widget.subject.trim();
+    if (normalizedSubject.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Set a subject before linking.')));
+      return;
+    }
+
+    final activeController = _activeController;
+    final selection = activeController.selection;
+    final text = activeController.text;
+    TextRange? targetRange = overrideRange;
+    if (targetRange == null) {
+      if (selection.isValid && !selection.isCollapsed) {
+        targetRange = TextRange(start: selection.start, end: selection.end);
+      } else if (selection.isValid && selection.isCollapsed) {
+        targetRange = _wordRangeAtCursor(text, selection.baseOffset);
+      }
+    }
+
+    if (targetRange == null || targetRange.isCollapsed) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select a word to link.')));
+      return;
+    }
+
+    final selectedText = overrideText ?? text.substring(targetRange.start, targetRange.end);
+    final selectedEntry = await showModalBottomSheet<DictionaryEntry>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => _DictionaryPickerSheet(
+        entriesFuture: dictionaryRepository.fetchEntries(subject: normalizedSubject),
+        onSelect: (entry) => Navigator.of(ctx).pop(entry),
+      ),
+    );
+
+    if (!mounted || selectedEntry == null) return;
+
+    final link = '[$selectedText](${selectedEntry.subject}:${selectedEntry.questId})';
+    final updated = text.replaceRange(targetRange.start, targetRange.end, link);
+    activeController.value = activeController.value.copyWith(
+      text: updated,
+      selection: TextSelection.collapsed(offset: targetRange.start + link.length),
+      composing: TextRange.empty,
+    );
+  }
+
+  Future<void> _editLinkAtRange({required TextRange range, required String linkText, required String linkTarget}) async {
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(title: Text('Linked to $linkTarget'), subtitle: const Text('Choose an action')),
+              ListTile(leading: const Icon(Icons.link_rounded), title: const Text('Change link'), onTap: () => Navigator.of(ctx).pop('change')),
+              ListTile(leading: const Icon(Icons.link_off_rounded), title: const Text('Remove link'), onTap: () => Navigator.of(ctx).pop('remove')),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!mounted || result == null) return;
+    final controller = _linkController;
+    final text = controller.text;
+    if (result == 'remove') {
+      final updated = text.replaceRange(range.start, range.end, linkText);
+      controller.value = controller.value.copyWith(
+        text: updated,
+        selection: TextSelection.collapsed(offset: range.start + linkText.length),
+        composing: TextRange.empty,
+      );
+      return;
+    }
+    if (result == 'change') {
+      await _linkSelectionToEntry(overrideRange: range, overrideText: linkText);
+    }
+  }
+  
+  Widget _buildLinkedEditor() {
+    return TextField(
+      controller: _linkController,
+      style: TextStyle(color: widget.colorScheme.onSurface, fontSize: 15, height: 1.6),
+      maxLines: null,
+      minLines: 3,
+      decoration: _editInputDecoration(context, widget.colorScheme, hint: 'Quest description…'),
+    );
+  }
+
+  Widget _buildPreview() {
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([dictionaryRepository.fetchEntries(), dictionaryRepository.fetchAliasIndex()]),
+      builder: (context, snapshot) {
+        final entries = snapshot.data != null ? snapshot.data![0] as List<DictionaryEntry> : const <DictionaryEntry>[];
+        final aliasIndex = snapshot.data != null ? snapshot.data![1] as Map<String, int> : const <String, int>{};
+        if (entries.isEmpty) {
+          return MarkdownBody(
+            data: _activeController.text,
+            styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(code: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+          );
+        }
+
+        return DictionaryMarkdownBody(
+          data: _activeController.text,
+          entries: entries,
+          titleIndex: dictionaryRepository.buildTitleAliasIndex(entries, aliasIndex),
+          linkColor: widget.colorScheme.primary,
+          onTapEntry: (entry) => showDictionaryEntryPreviewSheet(
+            context,
+            entry: entry,
+            onOpenQuest: () => context.go(entry.questRoute),
+            onOpenDictionary: () => context.go(entry.route),
+          ),
+          styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(code: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const viewChoices = <_DescriptionEditView>[_DescriptionEditView.raw, _DescriptionEditView.linked, _DescriptionEditView.preview];
+
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _SectionLabel(label: 'Description', colorScheme: widget.colorScheme),
+              ),
+              if (widget.editMode)
+                ToggleButtons(
+                  isSelected: viewChoices.map((v) => v == _viewMode).toList(),
+                  onPressed: (index) => setState(() => _viewMode = viewChoices[index]),
+                  borderRadius: BorderRadius.circular(999),
+                  constraints: const BoxConstraints(minHeight: 32, minWidth: 70),
+                  children: const [Text('Raw'), Text('Links'), Text('Preview')],
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (widget.editMode)
+            Row(
+              children: [
+                TextButton.icon(onPressed: () => _linkSelectionToEntry(), icon: const Icon(Icons.link_rounded, size: 18), label: const Text('Link word')),
+                TextButton.icon(onPressed: _autoLinkDescription, icon: const Icon(Icons.auto_fix_high_rounded, size: 18), label: const Text('Auto-link')),
+              ],
+            ),
+          if (widget.editMode) const SizedBox(height: 6),
+          if (widget.editMode)
+            Builder(
+              builder: (context) {
+                if (_viewMode == _DescriptionEditView.raw) {
+                  return TextField(
+                    controller: widget.controller,
+                    style: TextStyle(color: widget.colorScheme.onSurface, fontSize: 15, height: 1.6),
+                    maxLines: null,
+                    minLines: 3,
+                    decoration: _editInputDecoration(context, widget.colorScheme, hint: 'Quest description…'),
+                  );
+                }
+                if (_viewMode == _DescriptionEditView.linked) {
+                  return _buildLinkedEditor();
+                }
+                return _buildPreview();
+              },
+            )
+          else
+            FutureBuilder<List<dynamic>>(
+              future: Future.wait([dictionaryRepository.fetchEntries(), dictionaryRepository.fetchAliasIndex()]),
+              builder: (context, snapshot) {
+                final entries = snapshot.data != null ? snapshot.data![0] as List<DictionaryEntry> : const <DictionaryEntry>[];
+                final aliasIndex = snapshot.data != null ? snapshot.data![1] as Map<String, int> : const <String, int>{};
+                if (entries.isEmpty) {
+                  return MarkdownBody(
+                    data: widget.description,
+                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(code: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                  );
+                }
+
+                return DictionaryMarkdownBody(
+                  data: widget.description,
+                  entries: entries,
+                  titleIndex: dictionaryRepository.buildTitleAliasIndex(entries, aliasIndex),
+                  linkColor: widget.colorScheme.primary,
+                  onTapEntry: (entry) => showDictionaryEntryPreviewSheet(
+                    context,
+                    entry: entry,
+                    onOpenQuest: () => context.go(entry.questRoute),
+                    onOpenDictionary: () => context.go(entry.route),
+                  ),
+                  styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(code: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                );
+              },
+            ),
+          //Text(description, style: TextStyle(color: colorScheme.onSurface, fontSize: 15, height: 1.6)),
+        ],
+      ),
+    );
+  }
+}
+
+class _DictionaryPickerSheet extends StatefulWidget {
+  final Future<List<DictionaryEntry>> entriesFuture;
+  final void Function(DictionaryEntry entry) onSelect;
+
+  const _DictionaryPickerSheet({required this.entriesFuture, required this.onSelect});
+
+  @override
+  State<_DictionaryPickerSheet> createState() => _DictionaryPickerSheetState();
+}
+
+class _DictionaryPickerSheetState extends State<_DictionaryPickerSheet> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  String? _selectedSubject;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() => setState(() => _searchQuery = _searchController.text.trim()));
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search dictionary…',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      filled: true,
+                      fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.55),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: cs.outlineVariant)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: cs.primary, width: 1.4)),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  FutureBuilder<List<DictionaryEntry>>(
+                    future: widget.entriesFuture,
+                    builder: (context, snapshot) {
+                      final entries = snapshot.data ?? const <DictionaryEntry>[];
+                      final subjects = <String>{for (final entry in entries) if (entry.subject.trim().isNotEmpty) entry.subject}.toList()
+                        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+                      if (_selectedSubject != null && !subjects.contains(_selectedSubject)) {
+                        _selectedSubject = null;
+                      }
+
+                      return DropdownButtonFormField<String?>(
+                        initialValue: _selectedSubject,
+                        decoration: InputDecoration(
+                          labelText: 'Subject',
+                          filled: true,
+                          fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.45),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: cs.outlineVariant)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5))),
+                          isDense: true,
+                        ),
+                        items: [
+                          const DropdownMenuItem<String?>(value: null, child: Text('All subjects')),
+                          ...subjects.map((subject) => DropdownMenuItem<String?>(value: subject, child: Text(subject))),
+                        ],
+                        onChanged: (value) => setState(() => _selectedSubject = value),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            Flexible(
+              child: FutureBuilder<List<DictionaryEntry>>(
+                future: widget.entriesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final entries = snapshot.data ?? const <DictionaryEntry>[];
+                  final filtered = entries.where((entry) {
+                    if (_selectedSubject != null && entry.subject != _selectedSubject) return false;
+                    if (_searchQuery.isEmpty) return true;
+                    final haystack = '${entry.title}\n${entry.subject}\n${entry.description}'.toLowerCase();
+                    return haystack.contains(_searchQuery.toLowerCase());
+                  }).toList();
+
+                  if (filtered.isEmpty) {
+                    return Center(
+                      child: Text(
+                        entries.isEmpty ? 'No dictionary entries found' : 'No entries match your filter',
+                        style: TextStyle(color: cs.onSurfaceVariant),
+                      ),
+                    );
+                  }
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 6),
+                    itemBuilder: (context, index) {
+                      final entry = filtered[index];
+                      return ListTile(
+                        onTap: () => widget.onSelect(entry),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        tileColor: cs.surfaceContainerLow,
+                        title: Text(entry.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                        subtitle: Text(entry.previewSummary, maxLines: 2, overflow: TextOverflow.ellipsis),
+                        trailing: const Icon(Icons.send_rounded),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 // ── Meta / Details ────────────────────────────────────────────────────────────
 
@@ -962,7 +1336,6 @@ class _MetaSection extends StatelessWidget {
     required this.sizeYCtrl,
   });
 
-  @override
   Widget build(BuildContext context) {
     return Padding(padding: const EdgeInsets.all(20), child: _buildEditLayout());
   }
@@ -997,6 +1370,55 @@ class _MetaSection extends StatelessWidget {
     );
   }
 }
+
+class _LinkedTextController extends TextEditingController {
+  final void Function(TextRange range, String linkText, String linkTarget) onTapLink;
+
+  _LinkedTextController({required this.onTapLink});
+
+  String _mask(String value) => List.filled(value.length, ' ').join();
+
+  @override
+  TextSpan buildTextSpan({required BuildContext context, TextStyle? style, required bool withComposing}) {
+    final textValue = text;
+    final linkRegex = RegExp(r'\[([^\]]+)\]\(([^)]+)\)');
+    final spans = <InlineSpan>[];
+    var cursor = 0;
+    final linkStyle = style?.copyWith(
+      color: Theme.of(context).colorScheme.primary,
+      decoration: TextDecoration.underline,
+      decorationColor: Theme.of(context).colorScheme.primary,
+    );
+
+    for (final match in linkRegex.allMatches(textValue)) {
+      if (match.start > cursor) {
+        spans.add(TextSpan(text: textValue.substring(cursor, match.start), style: style));
+      }
+      final linkText = match.group(1) ?? '';
+      final linkTarget = match.group(2) ?? '';
+      final range = TextRange(start: match.start, end: match.end);
+
+      spans.add(TextSpan(text: _mask('['), style: style));
+      spans.add(TextSpan(text: linkText, style: linkStyle ?? style, recognizer: TapGestureRecognizer()..onTap = () => onTapLink(range, linkText, linkTarget)));
+      spans.add(TextSpan(text: _mask(']('), style: style));
+      spans.add(TextSpan(text: _mask(linkTarget), style: style));
+      spans.add(TextSpan(text: _mask(')'), style: style));
+      cursor = match.end;
+    }
+
+    if (cursor < textValue.length) {
+      spans.add(TextSpan(text: textValue.substring(cursor), style: style));
+    }
+
+    if (spans.isEmpty) {
+      spans.add(TextSpan(text: textValue, style: style));
+    }
+
+    return TextSpan(style: style, children: spans);
+  }
+}
+
+
 
 class _MetaReadOnlyRow extends StatelessWidget {
   final IconData icon;

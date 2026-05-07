@@ -218,6 +218,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
             context.go(entry.questRoute);
           },
           onShareToContact: (contact) => _shareToContact(contact, entry),
+          aliasIndex: _aliasIndex,
         );
       },
     );
@@ -415,6 +416,7 @@ class _DictionaryEntryDetailsSheet extends StatelessWidget {
   final List<ShareContact> shareContacts;
   final VoidCallback onOpenQuest;
   final Future<void> Function(ShareContact contact) onShareToContact;
+  final Map<String, int> _aliasIndex;
 
   const _DictionaryEntryDetailsSheet({
     required this.entry,
@@ -422,8 +424,8 @@ class _DictionaryEntryDetailsSheet extends StatelessWidget {
     required this.titleIndex,
     required this.shareContacts,
     required this.onOpenQuest,
-    required this.onShareToContact,
-  });
+    required this.onShareToContact, required Map<String, int> aliasIndex,
+  }) : _aliasIndex = aliasIndex;
 
   String _difficultyLabel(double d) {
     if (d < 0.2) return 'Beginner';
@@ -517,7 +519,7 @@ class _DictionaryEntryDetailsSheet extends StatelessWidget {
                 child: DictionaryMarkdownBody(
                   data: entry.description,
                   entries: entries,
-                  titleIndex: titleIndex,
+                  titleIndex: dictionaryRepository.buildTitleAliasIndex(entries, _aliasIndex),
                   linkColor: cs.primary,
                   onTapEntry: (dictionaryEntry) => showDictionaryEntryPreviewSheet(
                     context,
