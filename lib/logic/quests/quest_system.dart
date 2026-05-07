@@ -4,6 +4,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:lumox/logic/quests/quest.dart';
 import 'package:lumox/logic/quests/quest_change_manager.dart';
 import 'package:lumox/logic/quests/quest_connection.dart';
+import 'package:lumox/logic/quests/quest_layout/quest_graph_layout.dart';
+import 'package:lumox/logic/quests/quest_layout/quest_layout_config.dart';
 import 'package:lumox/logic/repositories/quest_repository.dart';
 
 class QuestSystem with ChangeNotifier {
@@ -71,6 +73,11 @@ class QuestSystem with ChangeNotifier {
     if (newType != null) connection.type = newType;
     if (newXpRequirement != null) connection.xpRequirement = newXpRequirement;
     notifyListeners();
+  }
+  
+  void layoutQuests({QuestLayoutConfig config = const QuestLayoutConfig()}) {
+    final QuestGraphLayoutEngine layoutEngine = QuestGraphLayoutEngine(config: config);
+    layoutEngine.layout(this);
   }
 
   String get subject => changeManager.subject;
