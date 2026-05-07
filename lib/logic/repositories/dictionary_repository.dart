@@ -35,7 +35,7 @@ class DictionaryRepository {
     return _buildEntriesFromQuestRows(rows);
   }
 
-  Future<List<String>> fetchSubjects() async {
+  Future<Set<String>> fetchSubjects() async {
     final entries = await fetchEntries();
     final seen = <String>{};
     final subjects = <String>[];
@@ -46,7 +46,7 @@ class DictionaryRepository {
       }
     }
     subjects.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    return subjects;
+    return subjects.toSet();
   }
 
   Future<DictionaryEntry?> fetchEntryById({required int questId, String? subject}) async {

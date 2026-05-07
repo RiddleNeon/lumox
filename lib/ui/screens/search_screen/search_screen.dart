@@ -62,7 +62,7 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
   SearchQuery<UserProfile>? _userQuery;
 
   List<DictionaryEntry> _dictionaryEntries = const [];
-  List<String> _dictionarySubjects = const [];
+  Set<String> _dictionarySubjects = const {};
   String? _dictionarySelectedSubject;
   String _dictionaryQuery = '';
   String? _dictionaryLoadedSubject;
@@ -858,91 +858,95 @@ class _DictionaryEntryDetailsSheet extends StatelessWidget {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        entry.title,
-                        style: TextStyle(color: cs.onSurface, fontSize: 20, fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        entry.subject,
-                        style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12, fontWeight: FontWeight.w600),
-                      ),
-                    ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          entry.title,
+                          style: TextStyle(color: cs.onSurface, fontSize: 20, fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          entry.subject,
+                          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                ShareButton(
-                  shareUrl: entry.route,
-                  contacts: shareContacts,
-                  emptyStateLabel: 'No chats yet',
-                  onShareToContact: (contact, _) => onShareToContact(contact),
-                ),
+                  ShareButton(
+                    shareUrl: entry.route,
+                    contacts: shareContacts,
+                    emptyStateLabel: 'No chats yet',
+                    onShareToContact: (contact, _) => onShareToContact(contact),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: difficultyColor.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: difficultyColor.withValues(alpha: 0.4)),
+                    ),
+                    child: Text(
+                      '${_difficultyLabel(entry.difficulty)} · ${((entry.difficulty).clamp(0.0, 1.0) * 100).round()}%',
+                      style: TextStyle(color: difficultyColor, fontSize: 12, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  Text('Quest #${entry.questId}', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+                ],
+              ),
+              if (prereqText.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text('Recommended prerequisites: $prereqText', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5, height: 1.4)),
               ],
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: difficultyColor.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: difficultyColor.withValues(alpha: 0.4)),
-                  ),
-                  child: Text(
-                    '${_difficultyLabel(entry.difficulty)} · ${((entry.difficulty).clamp(0.0, 1.0) * 100).round()}%',
-                    style: TextStyle(color: difficultyColor, fontSize: 12, fontWeight: FontWeight.w700),
-                  ),
-                ),
-                Text('Quest #${entry.questId}', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
-              ],
-            ),
-            if (prereqText.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text('Recommended prerequisites: $prereqText', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5, height: 1.4)),
-            ],
-            const SizedBox(height: 14),
-            ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.55),
-              child: SingleChildScrollView(
-                child: DictionaryMarkdownBody(
-                  data: entry.description,
-                  entries: entries,
-                  linkColor: cs.primary,
-                  onTapEntry: (dictionaryEntry) => showDictionaryEntryPreviewSheet(
-                    context,
-                    entry: dictionaryEntry,
-                    onOpenQuest: () => context.go(dictionaryEntry.questRoute),
-                    onOpenDictionary: () => context.go(dictionaryEntry.route),
-                  ),
-                  styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                    p: TextStyle(color: cs.onSurface, fontSize: 14.5, height: 1.55),
-                    h1: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w800),
-                    h2: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w800),
-                    h3: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w700),
+              const SizedBox(height: 14),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.55),
+                child: SingleChildScrollView(
+                  child: DictionaryMarkdownBody(
+                    data: entry.description,
+                    entries: entries,
+                    linkColor: cs.primary,
+                    onTapEntry: (dictionaryEntry) => showDictionaryEntryPreviewSheet(
+                      context,
+                      entry: dictionaryEntry,
+                      onOpenQuest: () => context.go(dictionaryEntry.questRoute),
+                      onOpenDictionary: () => context.go(dictionaryEntry.route),
+                    ),
+                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                      p: TextStyle(color: cs.onSurface, fontSize: 14.5, height: 1.55),
+                      h1: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w800),
+                      h2: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w800),
+                      h3: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w700),
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(onPressed: onOpenQuest, icon: const Icon(Icons.center_focus_strong_rounded), label: const Text('Open quest')),
-            ),
-          ],
+              const SizedBox(height: 16),
+              Flexible(
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(onPressed: onOpenQuest, icon: const Icon(Icons.center_focus_strong_rounded), label: const Text('Open quest')),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -28,7 +28,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   final ScrollController _scrollController = ScrollController();
 
   Timer? _searchDebounce;
-  List<String> _subjects = const [];
+  Set<String> _subjects = const {};
 
   String? _selectedSubject;
   String _searchQuery = '';

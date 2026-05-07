@@ -1,6 +1,6 @@
-import 'dart:math';
-
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'dart:math' as math;
 
 import 'package:lumox/ui/theme/theme_ui_values.dart';
@@ -9,10 +9,24 @@ class StreakCard extends StatefulWidget {
   final int completedDays;
   final int additionalShownDays;
   final int maxCompletedDaysShown;
-  
+
+  final int longestStreak;
+  final int totalActiveDays;
+  final DateTime? streakStartDate;
+  final int? rankPercentile;
+  final int? freezesLeft;
+
   const StreakCard({
     super.key,
-    required this.completedDays, this.additionalShownDays = 8, this.maxCompletedDaysShown = 5,
+    required this.completedDays,
+    this.additionalShownDays = 8,
+    this.maxCompletedDaysShown = 5,
+
+    this.longestStreak = 0,
+    this.totalActiveDays = 0,
+    this.streakStartDate,
+    this.rankPercentile,
+    this.freezesLeft,
   });
 
   @override
@@ -30,7 +44,6 @@ class _StreakCardState extends State<StreakCard> {
     "Keep going, you're doing great!",
     "Consistency beats motivation",
     "Small steps every day!",
-    "You're building something amazing.",
     "Every day counts, keep it up!",
     "Your future self will thank you.",
     "Streaks are the new black!",
@@ -41,9 +54,6 @@ class _StreakCardState extends State<StreakCard> {
     "You're on fire, keep it up!",
     "Streaks: the secret to success!",
     "Your streak is your superpower!",
-    "Keep the streak alive, keep the dreams alive!",
-    "Your streak is a badge of honor, wear it proudly!",
-    "unleash the power of your streak, one day at a time!",
   ];
 
   late String _currentMessage;
@@ -185,7 +195,10 @@ class _StreakCardState extends State<StreakCard> {
                       scale: expanded ? 0.8 : 1.0,
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOutBack,
-                      child: _buildOverlay(),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 320),
+                        child: _buildOverlay(),
+                      ),
                     ),
                   ),
                 ),
@@ -198,29 +211,152 @@ class _StreakCardState extends State<StreakCard> {
   }
 
   Widget _buildOverlay() {
+    final bool showDetails = expanded;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            "Your Streak",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+          _buildHeader(),
+          const SizedBox(height: 8),
+
+          FractionallySizedBox(
+            widthFactor: 0.8,
+            child: Text(
+              _currentMessage,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
+                height: 1.3,
+              ),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            _currentMessage,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 18,
-            ),
-          ),
+
+          if (showDetails) ...[
+            const SizedBox(height: 16),
+            _buildStatsGrid(),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return const Row(
+      children: [
+        Text(
+          "Your Streak",
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatsGrid() {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        _buildMiniStat(CupertinoIcons.flame, "Current", "${widget.completedDays}d", 0),
+        _buildMiniStat(Icons.emoji_events, "Best", "${widget.longestStreak}d", 1),
+
+        if (widget.streakStartDate != null)
+          _buildMiniStat(
+            Icons.flag,
+            "Since",
+            DateFormat('dd MMM yyyy').format(widget.streakStartDate!),
+            2,
+          ),
+
+        if (widget.totalActiveDays > 0)
+          _buildMiniStat(Icons.insights, "Total", "${widget.totalActiveDays}d", 3),
+
+        if (widget.rankPercentile != null)
+          _buildMiniStat(Icons.trending_up, "Rank", "Top ${100 - widget.rankPercentile!}%", 4),
+
+        if (widget.freezesLeft != null)
+          _buildMiniStat(Icons.ac_unit, "Freezes", "${widget.freezesLeft} left", 5),
+      ],
+    );
+  }
+
+  Widget _buildMiniStat(IconData icon, String label, String value, int index) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    const baseDuration = Duration(milliseconds: 260);
+    final delay = Duration(milliseconds: 40 * index);
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: expanded ? 1 : 0),
+      duration: baseDuration,
+      curve: Curves.easeOutCubic,
+      builder: (context, t, child) {
+        final slide = Offset(0, (1 - t) * 0.2);
+        final scale = 0.98 + (t * 0.02);
+        return AnimatedOpacity(
+          duration: baseDuration,
+          opacity: t,
+          child: AnimatedSlide(
+            duration: baseDuration,
+            curve: Curves.easeOutCubic,
+            offset: slide,
+            child: AnimatedScale(
+              duration: baseDuration,
+              curve: Curves.easeOutCubic,
+              scale: scale,
+              child: child,
+            ),
+          ),
+        );
+      },
+      onEnd: () {},
+      child: AnimatedContainer(
+        duration: baseDuration + delay,
+        curve: Curves.easeOutCubic,
+        width: 150,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: colors.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 18, color: colors.onSurface),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        color: colors.onSurface.withValues(alpha: 0.55),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(value,
+                    style: TextStyle(
+                        color: colors.onSurface,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14)),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

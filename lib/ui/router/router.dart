@@ -212,6 +212,7 @@ void initRouter() {
             pageBuilder: (context, state) {
               final subject = state.uri.queryParameters['subject']?.trim();
               final entryId = int.tryParse(state.uri.queryParameters['id'] ?? '');
+              print("Navigating to dictionary with subject: $subject and entryId: $entryId");
               return SlideMorphTransitions.page<void>(
                 key: state.pageKey,
                 child: SearchScreen(
