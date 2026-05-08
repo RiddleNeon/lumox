@@ -341,33 +341,23 @@ Future<QuestLayoutConfig?> showLayoutConfigDialog(BuildContext context) {
   );
 }
 
-Future<StructuredQuestLayoutConfig?> showStructuredLayoutConfigDialog(BuildContext context) {
+Future<RadialQuestLayoutConfig?> showStructuredLayoutConfigDialog(BuildContext context) {
 
-  return showDialog<StructuredQuestLayoutConfig>(
+  return showDialog<RadialQuestLayoutConfig>(
     context: context,
     builder: (context) {
-      return const _StructuredLayoutConfigDialog(
-        config: StructuredQuestLayoutConfig(
-          hubMinConnections: 4,
-          clusterSpacing: 200,
-          compactLayout: false,
-          crossingIterations: 12,
-          snapToGrid: true,
-          enableHubClusters: true,
-          enablePhysicsPolish: true,
-          enableSymmetry: true,
-          forceLayerAlignment: true,
-          gridSize: 20,
-          hubRadius: 500,
-          layerSpacing: 390,
-          mirrorSymmetry: true,
-          nodeSpacing: 250,
-          orthogonalRouting: true,
-          polishIterations: 5000,
-          polishStrength: 0.05,
-          radialSymmetry: true,
-          removeOverlaps: true,
-          straightenChains: true,
+      return const _RadialLayoutConfigDialog(
+        config: RadialQuestLayoutConfig(
+          layerSpacing: 420,
+          nodeSpacing: 80,
+          physicsIterations: 160,
+          repulsionStrength: 120000,
+          springStrength: 0.018,
+          radialStrength: 0.05,
+          seed: 1337,
+          angleJitter: 0.55,
+          snapToGrid: false,
+          gridSize: 40,
         ),
       );
     },
@@ -1275,69 +1265,54 @@ enum _StructuredPreset {
   quality,
 }
 
-class _StructuredLayoutConfigDialog extends StatefulWidget {
-  final StructuredQuestLayoutConfig config;
+enum _RadialPreset {
+  fast,
+  balanced,
+  quality,
+}
 
-  const _StructuredLayoutConfigDialog({
+class _RadialLayoutConfigDialog extends StatefulWidget {
+  final RadialQuestLayoutConfig config;
+
+  const _RadialLayoutConfigDialog({
     required this.config,
   });
 
   @override
-  State<_StructuredLayoutConfigDialog> createState() =>
-      _StructuredLayoutConfigDialogState();
+  State<_RadialLayoutConfigDialog> createState() =>
+      _RadialLayoutConfigDialogState();
 }
 
-class _StructuredLayoutConfigDialogState
-    extends State<_StructuredLayoutConfigDialog> {
-  /// Core
+class _RadialLayoutConfigDialogState
+    extends State<_RadialLayoutConfigDialog> {
   late double layerSpacing;
   late double nodeSpacing;
-  late double clusterSpacing;
 
-  /// Grid
+  late int physicsIterations;
+
+  late double repulsionStrength;
+  late double springStrength;
+  late double radialStrength;
+
+  late int seed;
+  late double angleJitter;
+
   late bool snapToGrid;
   late double gridSize;
 
-  /// Symmetry
-  late bool enableSymmetry;
-  late bool mirrorSymmetry;
-  late bool radialSymmetry;
-
-  /// Hubs
-  late bool enableHubClusters;
-  late int hubMinConnections;
-  late double hubRadius;
-
-  /// Crossing
-  late int crossingIterations;
-
-  /// Physics
-  late bool enablePhysicsPolish;
-  late int polishIterations;
-  late double polishStrength;
-
-  /// Routing
-  late bool orthogonalRouting;
-  late bool forceLayerAlignment;
-
-  /// Cleanup
-  late bool removeOverlaps;
-  late bool compactLayout;
-  late bool straightenChains;
-
   late TextEditingController layerSpacingCtrl;
   late TextEditingController nodeSpacingCtrl;
-  late TextEditingController clusterSpacingCtrl;
+
+  late TextEditingController physicsIterationsCtrl;
+
+  late TextEditingController repulsionStrengthCtrl;
+  late TextEditingController springStrengthCtrl;
+  late TextEditingController radialStrengthCtrl;
+
+  late TextEditingController seedCtrl;
+  late TextEditingController angleJitterCtrl;
 
   late TextEditingController gridSizeCtrl;
-
-  late TextEditingController hubMinConnectionsCtrl;
-  late TextEditingController hubRadiusCtrl;
-
-  late TextEditingController crossingIterationsCtrl;
-
-  late TextEditingController polishIterationsCtrl;
-  late TextEditingController polishStrengthCtrl;
 
   @override
   void initState() {
@@ -1347,31 +1322,18 @@ class _StructuredLayoutConfigDialogState
 
     layerSpacing = c.layerSpacing;
     nodeSpacing = c.nodeSpacing;
-    clusterSpacing = c.clusterSpacing;
+
+    physicsIterations = c.physicsIterations;
+
+    repulsionStrength = c.repulsionStrength;
+    springStrength = c.springStrength;
+    radialStrength = c.radialStrength;
+
+    seed = c.seed;
+    angleJitter = c.angleJitter;
 
     snapToGrid = c.snapToGrid;
     gridSize = c.gridSize;
-
-    enableSymmetry = c.enableSymmetry;
-    mirrorSymmetry = c.mirrorSymmetry;
-    radialSymmetry = c.radialSymmetry;
-
-    enableHubClusters = c.enableHubClusters;
-    hubMinConnections = c.hubMinConnections;
-    hubRadius = c.hubRadius;
-
-    crossingIterations = c.crossingIterations;
-
-    enablePhysicsPolish = c.enablePhysicsPolish;
-    polishIterations = c.polishIterations;
-    polishStrength = c.polishStrength;
-
-    orthogonalRouting = c.orthogonalRouting;
-    forceLayerAlignment = c.forceLayerAlignment;
-
-    removeOverlaps = c.removeOverlaps;
-    compactLayout = c.compactLayout;
-    straightenChains = c.straightenChains;
 
     layerSpacingCtrl =
         TextEditingController(text: layerSpacing.toStringAsFixed(0));
@@ -1379,163 +1341,129 @@ class _StructuredLayoutConfigDialogState
     nodeSpacingCtrl =
         TextEditingController(text: nodeSpacing.toStringAsFixed(0));
 
-    clusterSpacingCtrl =
-        TextEditingController(text: clusterSpacing.toStringAsFixed(0));
+    physicsIterationsCtrl =
+        TextEditingController(text: physicsIterations.toString());
+
+    repulsionStrengthCtrl =
+        TextEditingController(text: repulsionStrength.toStringAsFixed(0));
+
+    springStrengthCtrl =
+        TextEditingController(text: springStrength.toStringAsFixed(3));
+
+    radialStrengthCtrl =
+        TextEditingController(text: radialStrength.toStringAsFixed(3));
+
+    seedCtrl =
+        TextEditingController(text: seed.toString());
+
+    angleJitterCtrl =
+        TextEditingController(text: angleJitter.toStringAsFixed(2));
 
     gridSizeCtrl =
         TextEditingController(text: gridSize.toStringAsFixed(0));
-
-    hubMinConnectionsCtrl =
-        TextEditingController(text: hubMinConnections.toString());
-
-    hubRadiusCtrl =
-        TextEditingController(text: hubRadius.toStringAsFixed(0));
-
-    crossingIterationsCtrl =
-        TextEditingController(text: crossingIterations.toString());
-
-    polishIterationsCtrl =
-        TextEditingController(text: polishIterations.toString());
-
-    polishStrengthCtrl =
-        TextEditingController(text: polishStrength.toStringAsFixed(3));
   }
 
   @override
   void dispose() {
     layerSpacingCtrl.dispose();
     nodeSpacingCtrl.dispose();
-    clusterSpacingCtrl.dispose();
+
+    physicsIterationsCtrl.dispose();
+
+    repulsionStrengthCtrl.dispose();
+    springStrengthCtrl.dispose();
+    radialStrengthCtrl.dispose();
+
+    seedCtrl.dispose();
+    angleJitterCtrl.dispose();
 
     gridSizeCtrl.dispose();
-
-    hubMinConnectionsCtrl.dispose();
-    hubRadiusCtrl.dispose();
-
-    crossingIterationsCtrl.dispose();
-
-    polishIterationsCtrl.dispose();
-    polishStrengthCtrl.dispose();
 
     super.dispose();
   }
 
-  void _applyPreset(_StructuredPreset preset) {
+  void _applyPreset(_RadialPreset preset) {
     setState(() {
       switch (preset) {
-        case _StructuredPreset.fast:
-          layerSpacing = 420;
-          nodeSpacing = 180;
-          clusterSpacing = 520;
+        case _RadialPreset.fast:
+          layerSpacing = 320;
+          nodeSpacing = 60;
 
-          snapToGrid = true;
+          physicsIterations = 50;
+
+          repulsionStrength = 60000;
+          springStrength = 0.012;
+          radialStrength = 0.025;
+
+          seed = 1337;
+          angleJitter = 0.25;
+
+          snapToGrid = false;
           gridSize = 32;
-
-          enableSymmetry = false;
-          mirrorSymmetry = false;
-          radialSymmetry = false;
-
-          enableHubClusters = false;
-          hubMinConnections = 7;
-          hubRadius = 300;
-
-          crossingIterations = 4;
-
-          enablePhysicsPolish = false;
-          polishIterations = 10;
-          polishStrength = 0.04;
-
-          orthogonalRouting = false;
-          forceLayerAlignment = true;
-
-          removeOverlaps = true;
-          compactLayout = true;
-          straightenChains = false;
           break;
 
-        case _StructuredPreset.balanced:
+        case _RadialPreset.balanced:
           final c = widget.config;
 
           layerSpacing = c.layerSpacing;
           nodeSpacing = c.nodeSpacing;
-          clusterSpacing = c.clusterSpacing;
+
+          physicsIterations = c.physicsIterations;
+
+          repulsionStrength = c.repulsionStrength;
+          springStrength = c.springStrength;
+          radialStrength = c.radialStrength;
+
+          seed = c.seed;
+          angleJitter = c.angleJitter;
 
           snapToGrid = c.snapToGrid;
           gridSize = c.gridSize;
-
-          enableSymmetry = c.enableSymmetry;
-          mirrorSymmetry = c.mirrorSymmetry;
-          radialSymmetry = c.radialSymmetry;
-
-          enableHubClusters = c.enableHubClusters;
-          hubMinConnections = c.hubMinConnections;
-          hubRadius = c.hubRadius;
-
-          crossingIterations = c.crossingIterations;
-
-          enablePhysicsPolish = c.enablePhysicsPolish;
-          polishIterations = c.polishIterations;
-          polishStrength = c.polishStrength;
-
-          orthogonalRouting = c.orthogonalRouting;
-          forceLayerAlignment = c.forceLayerAlignment;
-
-          removeOverlaps = c.removeOverlaps;
-          compactLayout = c.compactLayout;
-          straightenChains = c.straightenChains;
           break;
 
-        case _StructuredPreset.quality:
-          layerSpacing = 620;
-          nodeSpacing = 260;
-          clusterSpacing = 900;
+        case _RadialPreset.quality:
+          layerSpacing = 520;
+          nodeSpacing = 110;
 
-          snapToGrid = true;
+          physicsIterations = 420;
+
+          repulsionStrength = 220000;
+          springStrength = 0.028;
+          radialStrength = 0.11;
+
+          seed = 1337;
+          angleJitter = 0.85;
+
+          snapToGrid = false;
           gridSize = 48;
-
-          enableSymmetry = true;
-          mirrorSymmetry = true;
-          radialSymmetry = true;
-
-          enableHubClusters = true;
-          hubMinConnections = 4;
-          hubRadius = 520;
-
-          crossingIterations = 20;
-
-          enablePhysicsPolish = true;
-          polishIterations = 80;
-          polishStrength = 0.18;
-
-          orthogonalRouting = true;
-          forceLayerAlignment = true;
-
-          removeOverlaps = true;
-          compactLayout = false;
-          straightenChains = true;
           break;
       }
 
-      layerSpacingCtrl.text = layerSpacing.toStringAsFixed(0);
-      nodeSpacingCtrl.text = nodeSpacing.toStringAsFixed(0);
-      clusterSpacingCtrl.text = clusterSpacing.toStringAsFixed(0);
+      layerSpacingCtrl.text =
+          layerSpacing.toStringAsFixed(0);
 
-      gridSizeCtrl.text = gridSize.toStringAsFixed(0);
+      nodeSpacingCtrl.text =
+          nodeSpacing.toStringAsFixed(0);
 
-      hubMinConnectionsCtrl.text =
-          hubMinConnections.toString();
+      physicsIterationsCtrl.text =
+          physicsIterations.toString();
 
-      hubRadiusCtrl.text =
-          hubRadius.toStringAsFixed(0);
+      repulsionStrengthCtrl.text =
+          repulsionStrength.toStringAsFixed(0);
 
-      crossingIterationsCtrl.text =
-          crossingIterations.toString();
+      springStrengthCtrl.text =
+          springStrength.toStringAsFixed(3);
 
-      polishIterationsCtrl.text =
-          polishIterations.toString();
+      radialStrengthCtrl.text =
+          radialStrength.toStringAsFixed(3);
 
-      polishStrengthCtrl.text =
-          polishStrength.toStringAsFixed(3);
+      seedCtrl.text = seed.toString();
+
+      angleJitterCtrl.text =
+          angleJitter.toStringAsFixed(2);
+
+      gridSizeCtrl.text =
+          gridSize.toStringAsFixed(0);
     });
   }
 
@@ -1581,55 +1509,53 @@ class _StructuredLayoutConfigDialogState
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text(
-        'Structured Layout Settings',
-      ),
+      title: const Text('Radial Layout Settings'),
       content: SingleChildScrollView(
         child: ConstrainedBox(
           constraints: const BoxConstraints(
-            minWidth: 550,
+            minWidth: 560,
             maxWidth: 720,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SegmentedButton<_StructuredPreset>(
+              SegmentedButton<_RadialPreset>(
                 segments: const [
                   ButtonSegment(
-                    value: _StructuredPreset.fast,
+                    value: _RadialPreset.fast,
                     label: Text('Fast'),
                     icon: Icon(Icons.speed),
                   ),
                   ButtonSegment(
-                    value: _StructuredPreset.balanced,
+                    value: _RadialPreset.balanced,
                     label: Text('Balanced'),
                     icon: Icon(Icons.balance),
                   ),
                   ButtonSegment(
-                    value: _StructuredPreset.quality,
+                    value: _RadialPreset.quality,
                     label: Text('Quality'),
                     icon: Icon(Icons.auto_awesome),
                   ),
                 ],
-                selected: {_StructuredPreset.balanced},
-                onSelectionChanged: (s) {
-                  if (s.isEmpty) return;
-                  _applyPreset(s.first);
+                selected: {_RadialPreset.balanced},
+                onSelectionChanged: (selection) {
+                  if (selection.isEmpty) return;
+                  _applyPreset(selection.first);
                 },
               ),
 
               const SizedBox(height: 20),
 
               _section(
-                title: 'Core Layout',
-                icon: Icons.account_tree_outlined,
+                title: 'Radial Structure',
+                icon: Icons.radar,
                 children: [
                   _labeledSlider(
                     label: 'Layer spacing',
                     value: layerSpacing,
                     min: 100,
-                    max: 1200,
-                    divisions: 110,
+                    max: 1000,
+                    divisions: 90,
                     controller: layerSpacingCtrl,
                     onChanged: (v) {
                       setState(() {
@@ -1642,7 +1568,7 @@ class _StructuredLayoutConfigDialogState
                       final v = _parseDouble(
                         layerSpacingCtrl,
                         100,
-                        1200,
+                        1000,
                         layerSpacing,
                       );
 
@@ -1655,9 +1581,9 @@ class _StructuredLayoutConfigDialogState
                   _labeledSlider(
                     label: 'Node spacing',
                     value: nodeSpacing,
-                    min: 80,
-                    max: 600,
-                    divisions: 52,
+                    min: 20,
+                    max: 240,
+                    divisions: 110,
                     controller: nodeSpacingCtrl,
                     onChanged: (v) {
                       setState(() {
@@ -1669,8 +1595,8 @@ class _StructuredLayoutConfigDialogState
                     onSubmitted: () {
                       final v = _parseDouble(
                         nodeSpacingCtrl,
-                        80,
-                        600,
+                        20,
+                        240,
                         nodeSpacing,
                       );
 
@@ -1681,31 +1607,166 @@ class _StructuredLayoutConfigDialogState
                   ),
 
                   _labeledSlider(
-                    label: 'Cluster spacing',
-                    value: clusterSpacing,
-                    min: 200,
-                    max: 1500,
-                    divisions: 130,
-                    controller: clusterSpacingCtrl,
+                    label: 'Radial strength',
+                    value: radialStrength,
+                    min: 0.0,
+                    max: 0.2,
+                    divisions: 200,
+                    controller: radialStrengthCtrl,
                     onChanged: (v) {
                       setState(() {
-                        clusterSpacing = v;
-                        clusterSpacingCtrl.text =
+                        radialStrength = v;
+                        radialStrengthCtrl.text =
+                            v.toStringAsFixed(3);
+                      });
+                    },
+                    onSubmitted: () {
+                      final v = _parseDouble(
+                        radialStrengthCtrl,
+                        0,
+                        0.2,
+                        radialStrength,
+                      );
+
+                      setState(() {
+                        radialStrength = v;
+                      });
+                    }, context: context,
+                  ),
+                ],
+              ),
+
+              _section(
+                title: 'Physics',
+                icon: Icons.blur_on,
+                children: [
+                  _numberField(
+                    label: 'Physics iterations',
+                    controller:
+                    physicsIterationsCtrl,
+                    onSubmitted: () {
+                      final v = _parseInt(
+                        physicsIterationsCtrl,
+                        0,
+                        10000,
+                        physicsIterations,
+                      );
+
+                      setState(() {
+                        physicsIterations = v;
+                      });
+                    },
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  _labeledSlider(
+                    label: 'Repulsion strength',
+                    value: repulsionStrength,
+                    min: 1000,
+                    max: 400000,
+                    divisions: 200,
+                    controller:
+                    repulsionStrengthCtrl,
+                    onChanged: (v) {
+                      setState(() {
+                        repulsionStrength = v;
+                        repulsionStrengthCtrl.text =
                             v.toStringAsFixed(0);
                       });
                     },
                     onSubmitted: () {
                       final v = _parseDouble(
-                        clusterSpacingCtrl,
-                        200,
-                        1500,
-                        clusterSpacing,
+                        repulsionStrengthCtrl,
+                        1000,
+                        400000,
+                        repulsionStrength,
                       );
 
                       setState(() {
-                        clusterSpacing = v;
+                        repulsionStrength = v;
                       });
                     }, context: context,
+                  ),
+
+                  _labeledSlider(
+                    label: 'Spring strength',
+                    value: springStrength,
+                    min: 0.001,
+                    max: 0.08,
+                    divisions: 200,
+                    controller:
+                    springStrengthCtrl,
+                    onChanged: (v) {
+                      setState(() {
+                        springStrength = v;
+                        springStrengthCtrl.text =
+                            v.toStringAsFixed(3);
+                      });
+                    },
+                    onSubmitted: () {
+                      final v = _parseDouble(
+                        springStrengthCtrl,
+                        0.001,
+                        0.08,
+                        springStrength,
+                      );
+
+                      setState(() {
+                        springStrength = v;
+                      });
+                    }, context: context,
+                  ),
+                ],
+              ),
+
+              _section(
+                title: 'Distribution',
+                icon: Icons.scatter_plot,
+                children: [
+                  _labeledSlider(
+                    label: 'Angle jitter',
+                    value: angleJitter,
+                    min: 0,
+                    max: 1,
+                    divisions: 100,
+                    controller: angleJitterCtrl,
+                    onChanged: (v) {
+                      setState(() {
+                        angleJitter = v;
+                        angleJitterCtrl.text =
+                            v.toStringAsFixed(2);
+                      });
+                    },
+                    onSubmitted: () {
+                      final v = _parseDouble(
+                        angleJitterCtrl,
+                        0,
+                        1,
+                        angleJitter,
+                      );
+
+                      setState(() {
+                        angleJitter = v;
+                      });
+                    }, context: context,
+                  ),
+
+                  _numberField(
+                    label: 'Random seed',
+                    controller: seedCtrl,
+                    onSubmitted: () {
+                      final v = _parseInt(
+                        seedCtrl,
+                        0,
+                        999999999,
+                        seed,
+                      );
+
+                      setState(() {
+                        seed = v;
+                      });
+                    },
                   ),
                 ],
               ),
@@ -1757,299 +1818,6 @@ class _StructuredLayoutConfigDialogState
                   ),
                 ],
               ),
-
-              _section(
-                title: 'Symmetry',
-                icon: Icons.flip,
-                children: [
-                  SwitchListTile(
-                    contentPadding:
-                    EdgeInsets.zero,
-                    title:
-                    const Text('Enable symmetry'),
-                    value: enableSymmetry,
-                    onChanged: (v) {
-                      setState(() {
-                        enableSymmetry = v;
-                      });
-                    },
-                  ),
-
-                  SwitchListTile(
-                    contentPadding:
-                    EdgeInsets.zero,
-                    title:
-                    const Text('Mirror symmetry'),
-                    value: mirrorSymmetry,
-                    onChanged: (v) {
-                      setState(() {
-                        mirrorSymmetry = v;
-                      });
-                    },
-                  ),
-
-                  SwitchListTile(
-                    contentPadding:
-                    EdgeInsets.zero,
-                    title:
-                    const Text('Radial symmetry'),
-                    value: radialSymmetry,
-                    onChanged: (v) {
-                      setState(() {
-                        radialSymmetry = v;
-                      });
-                    },
-                  ),
-                ],
-              ),
-
-              _section(
-                title: 'Hub Clusters',
-                icon: Icons.hub,
-                children: [
-                  SwitchListTile(
-                    contentPadding:
-                    EdgeInsets.zero,
-                    title:
-                    const Text('Enable hubs'),
-                    value: enableHubClusters,
-                    onChanged: (v) {
-                      setState(() {
-                        enableHubClusters = v;
-                      });
-                    },
-                  ),
-
-                  _numberField(
-                    label: 'Hub min connections',
-                    controller:
-                    hubMinConnectionsCtrl,
-                    onSubmitted: () {
-                      final v = _parseInt(
-                        hubMinConnectionsCtrl,
-                        2,
-                        30,
-                        hubMinConnections,
-                      );
-
-                      setState(() {
-                        hubMinConnections = v;
-                      });
-                    },
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  _labeledSlider(
-                    label: 'Hub radius',
-                    value: hubRadius,
-                    min: 100,
-                    max: 1000,
-                    divisions: 90,
-                    controller: hubRadiusCtrl,
-                    onChanged: (v) {
-                      setState(() {
-                        hubRadius = v;
-                        hubRadiusCtrl.text =
-                            v.toStringAsFixed(0);
-                      });
-                    },
-                    onSubmitted: () {
-                      final v = _parseDouble(
-                        hubRadiusCtrl,
-                        100,
-                        1000,
-                        hubRadius,
-                      );
-
-                      setState(() {
-                        hubRadius = v;
-                      });
-                    }, context: context,
-                  ),
-                ],
-              ),
-
-              _section(
-                title: 'Optimization',
-                icon: Icons.tune,
-                children: [
-                  _numberField(
-                    label: 'Crossing iterations',
-                    controller:
-                    crossingIterationsCtrl,
-                    onSubmitted: () {
-                      final v = _parseInt(
-                        crossingIterationsCtrl,
-                        1,
-                        100,
-                        crossingIterations,
-                      );
-
-                      setState(() {
-                        crossingIterations = v;
-                      });
-                    },
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  SwitchListTile(
-                    contentPadding:
-                    EdgeInsets.zero,
-                    title: const Text(
-                      'Enable physics polish',
-                    ),
-                    value: enablePhysicsPolish,
-                    onChanged: (v) {
-                      setState(() {
-                        enablePhysicsPolish = v;
-                      });
-                    },
-                  ),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _numberField(
-                          label:
-                          'Polish iterations',
-                          controller:
-                          polishIterationsCtrl,
-                          onSubmitted: () {
-                            final v =
-                            _parseInt(
-                              polishIterationsCtrl,
-                              0,
-                              500,
-                              polishIterations,
-                            );
-
-                            setState(() {
-                              polishIterations =
-                                  v;
-                            });
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  _labeledSlider(
-                    label: 'Polish strength',
-                    value: polishStrength,
-                    min: 0.0,
-                    max: 0.4,
-                    divisions: 200,
-                    controller:
-                    polishStrengthCtrl,
-                    onChanged: (v) {
-                      setState(() {
-                        polishStrength = v;
-                        polishStrengthCtrl.text =
-                            v.toStringAsFixed(
-                                3);
-                      });
-                    },
-                    onSubmitted: () {
-                      final v = _parseDouble(
-                        polishStrengthCtrl,
-                        0,
-                        0.4,
-                        polishStrength,
-                      );
-
-                      setState(() {
-                        polishStrength = v;
-                      });
-                    }, context: context,
-                  ),
-                ],
-              ),
-
-              _section(
-                title: 'Routing',
-                icon: Icons.route,
-                children: [
-                  SwitchListTile(
-                    contentPadding:
-                    EdgeInsets.zero,
-                    title: const Text(
-                      'Orthogonal routing',
-                    ),
-                    value: orthogonalRouting,
-                    onChanged: (v) {
-                      setState(() {
-                        orthogonalRouting = v;
-                      });
-                    },
-                  ),
-
-                  SwitchListTile(
-                    contentPadding:
-                    EdgeInsets.zero,
-                    title: const Text(
-                      'Force layer alignment',
-                    ),
-                    value: forceLayerAlignment,
-                    onChanged: (v) {
-                      setState(() {
-                        forceLayerAlignment =
-                            v;
-                      });
-                    },
-                  ),
-                ],
-              ),
-
-              _section(
-                title: 'Cleanup',
-                icon: Icons.cleaning_services,
-                children: [
-                  SwitchListTile(
-                    contentPadding:
-                    EdgeInsets.zero,
-                    title: const Text(
-                      'Remove overlaps',
-                    ),
-                    value: removeOverlaps,
-                    onChanged: (v) {
-                      setState(() {
-                        removeOverlaps = v;
-                      });
-                    },
-                  ),
-
-                  SwitchListTile(
-                    contentPadding:
-                    EdgeInsets.zero,
-                    title:
-                    const Text('Compact layout'),
-                    value: compactLayout,
-                    onChanged: (v) {
-                      setState(() {
-                        compactLayout = v;
-                      });
-                    },
-                  ),
-
-                  SwitchListTile(
-                    contentPadding:
-                    EdgeInsets.zero,
-                    title: const Text(
-                      'Straighten chains',
-                    ),
-                    value: straightenChains,
-                    onChanged: (v) {
-                      setState(() {
-                        straightenChains = v;
-                      });
-                    },
-                  ),
-                ],
-              ),
             ],
           ),
         ),
@@ -2065,52 +1833,27 @@ class _StructuredLayoutConfigDialogState
           label: const Text('Apply'),
           onPressed: () {
             Navigator.of(context).pop(
-              StructuredQuestLayoutConfig(
+              RadialQuestLayoutConfig(
                 layerSpacing: layerSpacing,
                 nodeSpacing: nodeSpacing,
-                clusterSpacing: clusterSpacing,
+
+                physicsIterations:
+                physicsIterations,
+
+                repulsionStrength:
+                repulsionStrength,
+
+                springStrength:
+                springStrength,
+
+                radialStrength:
+                radialStrength,
+
+                seed: seed,
+                angleJitter: angleJitter,
 
                 snapToGrid: snapToGrid,
                 gridSize: gridSize,
-
-                enableSymmetry: enableSymmetry,
-                mirrorSymmetry: mirrorSymmetry,
-                radialSymmetry: radialSymmetry,
-
-                enableHubClusters:
-                enableHubClusters,
-
-                hubMinConnections:
-                hubMinConnections,
-
-                hubRadius: hubRadius,
-
-                crossingIterations:
-                crossingIterations,
-
-                enablePhysicsPolish:
-                enablePhysicsPolish,
-
-                polishIterations:
-                polishIterations,
-
-                polishStrength:
-                polishStrength,
-
-                orthogonalRouting:
-                orthogonalRouting,
-
-                forceLayerAlignment:
-                forceLayerAlignment,
-
-                removeOverlaps:
-                removeOverlaps,
-
-                compactLayout:
-                compactLayout,
-
-                straightenChains:
-                straightenChains,
               ),
             );
           },
@@ -2143,17 +1886,13 @@ class _StructuredLayoutConfigDialogState
           onPressed: () {
             setState(() {
               switch (label) {
-                case 'Hub min connections':
-                  hubMinConnections = widget.config.hubMinConnections;
-                  hubMinConnectionsCtrl.text = hubMinConnections.toStringAsFixed(0);
+                case 'Physics iterations':
+                  physicsIterations = widget.config.physicsIterations;
+                  physicsIterationsCtrl.text = physicsIterations.toStringAsFixed(0);
                   break;
-                case 'Crossing iterations':
-                  crossingIterations = widget.config.crossingIterations;
-                  crossingIterationsCtrl.text = crossingIterations.toStringAsFixed(0);
-                  break;                
-                case 'Polish iterations':
-                  polishIterations = widget.config.polishIterations;
-                  polishIterationsCtrl.text = crossingIterations.toStringAsFixed(0);
+                case 'Random seed':
+                  seed = widget.config.seed;
+                  seedCtrl.text = seed.toStringAsFixed(0);
                   break;
                 default:
               }
@@ -2163,7 +1902,6 @@ class _StructuredLayoutConfigDialogState
       ],
     );
   }
-  
 }
 
 double _parseDouble(TextEditingController c, double min, double max, double fallback) {

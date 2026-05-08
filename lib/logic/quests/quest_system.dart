@@ -81,8 +81,8 @@ class QuestSystem with ChangeNotifier {
     layoutEngine.layout(this);
   }
   
-  void layoutQuestsStructured({StructuredQuestLayoutConfig config = const StructuredQuestLayoutConfig()}) {
-    final StructuredQuestLayouter layoutSystem = StructuredQuestLayouter(config: config);
+  void layoutQuestsStructured({RadialQuestLayoutConfig config = const RadialQuestLayoutConfig()}) {
+    final RadialQuestLayouter layoutSystem = RadialQuestLayouter(config: config);
     layoutSystem.layout(this);
   }
 
