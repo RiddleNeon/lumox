@@ -10,7 +10,7 @@ void main() async {
   debugPrint = (String? message, {int? wrapWidth}) {if(!(message?.startsWith("Got object store box") ?? false)) {}};
   await initLogic();
   await setupMessaging();
-  //?await publishTest();
+  //? await publishTest();
 
   startApp();
 }

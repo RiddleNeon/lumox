@@ -6,6 +6,7 @@ import 'package:lumox/logic/quests/quest_change_manager.dart';
 import 'package:lumox/logic/quests/quest_connection.dart';
 import 'package:lumox/logic/quests/quest_layout/quest_graph_layout.dart';
 import 'package:lumox/logic/quests/quest_layout/quest_layout_config.dart';
+import 'package:lumox/logic/quests/quest_layout/structured/structured_quest_layout_system.dart';
 import 'package:lumox/logic/repositories/quest_repository.dart';
 
 class QuestSystem with ChangeNotifier {
@@ -78,6 +79,11 @@ class QuestSystem with ChangeNotifier {
   void layoutQuests({QuestLayoutConfig config = const QuestLayoutConfig()}) {
     final QuestGraphLayoutEngine layoutEngine = QuestGraphLayoutEngine(config: config);
     layoutEngine.layout(this);
+  }
+  
+  void layoutQuestsStructured({StructuredQuestLayoutConfig config = const StructuredQuestLayoutConfig()}) {
+    final StructuredQuestLayouter layoutSystem = StructuredQuestLayouter(config: config);
+    layoutSystem.layout(this);
   }
 
   String get subject => changeManager.subject;

@@ -23,6 +23,11 @@ class QuestGraphLayoutEngine {
     _assignCoordinates(nodes);
 
     _forceOptimize(nodes, edges);
+    
+    _applyCircularHubLayouts(nodes.values.toList());
+    _applySymmetryForces(nodes.values.toList());
+    _applyOrganicShapeForces(nodes.values.toList());
+    
     _resolveCollisions(nodes);
     _normalize(nodes);
 
@@ -383,6 +388,133 @@ class QuestGraphLayoutEngine {
       n.y -= minY;
     }
   }
+
+  void _applyCircularHubLayouts(
+      List<LayoutNode> nodes,
+      ) {
+    if (!config.enableCircularClusters) return;
+
+    final hubs = _findHubNodes(nodes);
+
+    for (final hub in hubs) {
+      final connected = {
+        ...hub.incoming,
+        ...hub.outgoing,
+      }.toList();
+
+      if (connected.length < 4) continue;
+
+      final radius =
+          config.hubOrbitSpacing +
+              connected.length * 10;
+
+      for (int i = 0; i < connected.length; i++) {
+        final node = connected[i];
+
+        final angle =
+            (pi * 2 * i) / connected.length;
+
+        final targetX =
+            hub.center.dx + cos(angle) * radius;
+
+        final targetY =
+            hub.center.dy + sin(angle) * radius;
+        
+        node.x = lerpDouble(node.x, targetX, 0.18)!;
+        node.y = lerpDouble(node.y, targetY, 0.18)!;
+      }
+    }
+  }
+
+  void _applySymmetryForces(
+      List<LayoutNode> nodes,
+      ) {
+    if (!config.enableSymmetryForces) return;
+
+    final byLayer = <int, List<LayoutNode>>{};
+
+    for (final node in nodes) {
+      byLayer.putIfAbsent(node.layer, () => []);
+      byLayer[node.layer]!.add(node);
+    }
+
+    for (final layer in byLayer.values) {
+      layer.sort((a, b) =>
+          a.center.dy.compareTo(b.center.dy));
+
+      for (int i = 0; i < layer.length ~/ 2; i++) {
+        final top = layer[i];
+        final bottom = layer[layer.length - 1 - i];
+
+        final centerY =
+            (top.center.dy + bottom.center.dy) / 2;
+
+        final offsetTop = top.center.dy - centerY;
+        final offsetBottom = bottom.center.dy - centerY;
+
+        final targetOffset =
+            (offsetTop.abs() + offsetBottom.abs()) / 2;
+
+        top.y = lerpDouble(
+          top.y,
+          centerY - targetOffset,
+          config.symmetryStrength,
+        )!;
+
+        bottom.y = lerpDouble(
+          bottom.y,
+          centerY + targetOffset,
+          config.symmetryStrength,
+        )!;
+      }
+    }
+  }
+
+  void _applyOrganicShapeForces(
+      List<LayoutNode> nodes,
+      ) {
+    if (!config.enableOrganicShapes) return;
+
+    for (final node in nodes) {
+      final neighbors = {
+        ...node.incoming,
+        ...node.outgoing,
+      }.toList();
+
+      if (neighbors.length < 2) continue;
+
+      double avgX = 0;
+      double avgY = 0;
+
+      for (final n in neighbors) {
+        avgX += n.center.dx;
+        avgY += n.center.dy;
+      }
+
+      avgX /= neighbors.length;
+      avgY /= neighbors.length;
+
+      final dx = avgX - node.center.dx;
+      final dy = avgY - node.center.dy;
+
+      node.x += dx * config.shapeStrength;
+      node.y += dy * config.shapeStrength;
+    }
+  }
+  
+  List<LayoutNode> _findHubNodes(
+      List<LayoutNode> nodes,
+      ) {
+    return nodes.where((node) {
+      final degree =
+          node.incoming.length +
+              node.outgoing.length;
+
+      return degree >= config.hubMinConnections;
+    }).toList();
+  }
+  
+  
 
   void _writeBack(
       QuestSystem system,
