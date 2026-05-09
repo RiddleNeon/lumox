@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lumox/logic/quests/quest.dart';
+import 'package:lumox/logic/quests/quest_layout/custom/custom_layout_config.dart';
+import 'package:lumox/logic/quests/quest_layout/custom/custom_layout_system.dart';
 import 'package:lumox/logic/quests/quest_layout/quest_layout_config.dart';
 import 'package:lumox/logic/quests/quest_layout/structured/structured_quest_layout_system.dart';
 import 'package:lumox/logic/quests/quest_system.dart';
@@ -197,13 +199,28 @@ class _QuestScreenState extends State<QuestScreen> {
                 curve: Curves.easeInOutCirc,
                 child: FloatingActionButton(
                   heroTag: null,
+                  child: const Icon(Icons.print),
+                  onPressed: () {
+                    CustomLayoutSystem layoutSystem = CustomLayoutSystem(questSystem!, CustomLayoutConfig());
+
+                    layoutSystem.layout();
+                  },
+                ),
+              ),
+              const SizedBox(width: 16),
+              AnimatedSlide(
+                offset: debugMode && loaded ? Offset.zero : const Offset(0, 2),
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeInOutCirc,
+                child: FloatingActionButton(
+                  heroTag: null,
                   clipBehavior: Clip.none,
                   child: const Stack(clipBehavior: Clip.none, children: [Icon(Icons.auto_awesome_mosaic)]),
                   onPressed: () async {
-                    final config = await showStructuredLayoutConfigDialog(context);
+                    final config = await showLayoutConfigDialog(context);
                     if (config == null || questSystem == null) return;
 
-                    questSystem.layoutQuestsStructured(config: config);
+                    questSystem.layoutQuests(config: config);
                   },
                 ),
               ),
@@ -1257,13 +1274,6 @@ Widget _section({required IconData icon, required String title, required List<Wi
 }
 
 enum _LayoutPreset { low, balanced, high }
-
-
-enum _StructuredPreset {
-  fast,
-  balanced,
-  quality,
-}
 
 enum _RadialPreset {
   fast,

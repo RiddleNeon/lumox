@@ -35,6 +35,8 @@ class QuestSystem with ChangeNotifier {
 
   bool isConnected(int fromId, int toId) => _prerequisites.containsKey(_key(fromId, toId));
   QuestConnection? getConnection(int fromId, int toId) => _prerequisites[_key(fromId, toId)];
+  
+  List<QuestConnection> getConnections() => _prerequisites.values.toList();
 
   // ── Quest mutations ────────────────────────────────────────────────────────
 
