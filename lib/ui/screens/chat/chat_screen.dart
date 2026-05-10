@@ -1,6 +1,5 @@
 import 'dart:math';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -12,8 +11,6 @@ import 'package:lumox/logic/users/user_model.dart';
 import 'package:lumox/logic/repositories/chat_repository.dart';
 import 'package:lumox/logic/repositories/video_repository.dart';
 import 'package:lumox/logic/video/video.dart';
-import 'package:lumox/ui/animations/slide_morph_transitions.dart';
-import 'package:lumox/ui/misc/avatar.dart';
 import 'package:lumox/ui/screens/chat/message_avatar.dart';
 import 'package:lumox/ui/screens/dictionary/dictionary_picker_sheet.dart';
 import 'package:lumox/ui/screens/search_screen/search_screen.dart';
@@ -26,7 +23,6 @@ import '../../../logic/local_storage/local_seen_service.dart';
 import '../profile_screen.dart';
 import 'calling_screen.dart';
 import 'chat_route_preview.dart';
-import '../../theme/theme_creation_screen.dart';
 import 'message_bubble.dart';
 
 class MessagingScreen extends StatefulWidget {
@@ -472,7 +468,6 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       _createBubbleController(animate: false);
       
       print("added message ${newMessages[i].text} with timestamp ${newMessages[i].timestamp}");
-      
     }
 
     if (appendToEnd) {

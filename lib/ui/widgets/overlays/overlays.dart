@@ -57,14 +57,13 @@ class _PageOverlayState extends State<PageOverlay> {
   late bool liked = widget.initiallyLiked;
   late bool disliked = widget.initiallyDisliked;
 
-  List<ShareContact> _shareContacts = const [];
+  Set<ShareContact> _shareContacts = const {};
   final Map<String, Chat> _chatByPartnerId = {};
   bool _isShareMenuExpanded = false;
 
   @override
   void initState() {
     super.initState();
-    _prepareShareContacts();
   }
 
   @override
@@ -98,7 +97,10 @@ class _PageOverlayState extends State<PageOverlay> {
               CommentButton(onComment: _onCommentButtonPressed),
               ShareButton(
                 shareUrl: DeepLinkBuilder.feed(videoId: widget.video.id),
-                contacts: _shareContacts,
+                loadContacts: () async {
+                  await _prepareShareContacts();
+                  return _shareContacts;
+                },
                 onShared: () => widget.onShareChanged?.call(true),
                 onShareToContact: _shareToContact,
                 onExpandedChanged: (expanded) {
@@ -127,7 +129,7 @@ class _PageOverlayState extends State<PageOverlay> {
     final thirtyDaysAgo = now.subtract(const Duration(days: 30));
     final currentVideoLink = DeepLinkBuilder.feed(videoId: widget.video.id);
     final chats = localSeenService.getChats();
-    final contacts = <ShareContact>[];
+    final contacts = <ShareContact>{};
     final chatMap = <String, Chat>{};
 
     for (final chat in chats) {

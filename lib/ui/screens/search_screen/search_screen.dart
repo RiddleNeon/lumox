@@ -68,7 +68,6 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
   String? _dictionaryLoadedSubject;
   bool _dictionaryLoading = false;
   bool _dictionaryAutoOpenedPreview = false;
-  bool _dictionaryPreparedShareContacts = false;
   Map<String, int> _dictionaryAliasIndex = const {};
 
   int _searchRequestId = 0;
@@ -213,11 +212,7 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
       dictionaryFuture = _fetchDictionaryEntriesForQuery(trimmedQuery);
     }
 
-    await Future.wait([
-      if (nextVideoQuery != null) nextVideoQuery.preloadMore(),
-      if (nextUserQuery != null) nextUserQuery.preloadMore(),
-      ?dictionaryFuture,
-    ]);
+    await Future.wait([if (nextVideoQuery != null) nextVideoQuery.preloadMore(), if (nextUserQuery != null) nextUserQuery.preloadMore(), ?dictionaryFuture]);
 
     final dictionaryEntries = dictionaryFuture == null ? null : await dictionaryFuture;
     if (requestId != _searchRequestId) return;
@@ -241,10 +236,10 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
   }
 
   void _ensureDictionaryData({bool loadEntries = true}) {
-    if (!_dictionaryPreparedShareContacts) {
-      _dictionaryPreparedShareContacts = true;
-      _prepareShareContacts();
-    }
+    // if (!_dictionaryPreparedShareContacts) {
+    //   _dictionaryPreparedShareContacts = true;
+    //   _prepareShareContacts();
+    // }
     if (_dictionarySubjects.isEmpty) {
       _loadDictionarySubjects();
     }
@@ -260,10 +255,12 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
   }
 
   Future<void> _loadDictionarySubjects() async {
+    print("loading subjects now");
     final subjects = await dictionaryRepository.fetchSubjects();
     if (!mounted) return;
     setState(() {
       _dictionarySubjects = subjects;
+      print("loaded subjects: $_dictionarySubjects");
       if (_dictionarySelectedSubject != null && !_dictionarySubjects.contains(_dictionarySelectedSubject)) {
         _dictionarySelectedSubject = null;
       }
@@ -361,7 +358,7 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
     });
   }
 
-  List<ShareContact> _contactsForEntry(DictionaryEntry entry) {
+  Set<ShareContact> _contactsForEntry(DictionaryEntry entry) {
     final link = entry.route;
     return _shareContacts.map((contact) {
       final lastSharedAt = _lastSharedLinkByPartnerId[contact.id]?[link];
@@ -374,7 +371,7 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
         alreadySharedWithThisVideo: lastSharedAt != null,
         lastSharedThisVideoAt: lastSharedAt,
       );
-    }).toList();
+    }).toSet();
   }
 
   Future<void> _shareToContact(ShareContact contact, DictionaryEntry entry) async {
@@ -386,7 +383,9 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
     await chatRepository.sendNotification(chat: chat, message: message);
     await localSeenService.sendMessageLocal(chat, message);
     if (!mounted) return;
+    print("PREPARING!");
     await _prepareShareContacts();
+    print("PREPARED!");
   }
 
   Future<void> _openEntryDetails(BuildContext context, DictionaryEntry entry, List<DictionaryEntry> entries) async {
@@ -400,7 +399,11 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
           entry: entry,
           entries: entries,
           titleIndex: titleIndex,
-          shareContacts: _contactsForEntry(entry),
+          loadContacts: () async {
+            await _prepareShareContacts();
+
+            return _contactsForEntry(entry);
+          },
           onOpenQuest: () {
             Navigator.of(ctx).pop();
             context.go(entry.questRoute);
@@ -603,6 +606,8 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
     final hasSubjectFilter = _dictionarySelectedSubject != null;
     final emptyLabel = hasQuery || hasSubjectFilter ? 'No entries match your filter' : 'No dictionary entries found';
 
+    print("building tab with subjects: $subjects, selected: $_dictionarySelectedSubject, entries: ${entries.length}, loading: $isLoading");
+
     return Column(
       children: [
         Padding(
@@ -629,6 +634,7 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
                   items: [
                     const DropdownMenuItem<String?>(value: null, child: Text('All subjects')),
                     ...subjects.map((subject) => DropdownMenuItem<String?>(value: subject, child: Text(subject))),
+                    if (subjects.isEmpty) DropdownMenuItem<String?>(value: _dictionarySelectedSubject, child: Text(_dictionarySelectedSubject ?? '')),
                   ],
                   onChanged: (value) {
                     setState(() => _dictionarySelectedSubject = value);
@@ -680,7 +686,11 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
                                   ),
                                   ShareButton(
                                     shareUrl: entry.route,
-                                    contacts: _contactsForEntry(entry),
+                                    loadContacts: () async {
+                                      await _prepareShareContacts();
+                                      
+                                      return _contactsForEntry(entry);
+                                    },
                                     emptyStateLabel: 'No chats yet',
                                     onShareToContact: (contact, _) => _shareToContact(contact, entry),
                                   ),
@@ -828,7 +838,7 @@ class _DictionaryEntryDetailsSheet extends StatelessWidget {
   final DictionaryEntry entry;
   final List<DictionaryEntry> entries;
   final Map<String, DictionaryEntry> titleIndex;
-  final List<ShareContact> shareContacts;
+  final Future<Set<ShareContact>> Function() loadContacts;
   final VoidCallback onOpenQuest;
   final Future<void> Function(ShareContact contact) onShareToContact;
   final Map<String, int> _dictionaryAliasIndex;
@@ -837,9 +847,10 @@ class _DictionaryEntryDetailsSheet extends StatelessWidget {
     required this.entry,
     required this.entries,
     required this.titleIndex,
-    required this.shareContacts,
+    required this.loadContacts,
     required this.onOpenQuest,
-    required this.onShareToContact, required Map<String, int> dictionaryAliasIndex,
+    required this.onShareToContact,
+    required Map<String, int> dictionaryAliasIndex,
   }) : _dictionaryAliasIndex = dictionaryAliasIndex;
 
   String _difficultyLabel(double d) {
@@ -900,7 +911,7 @@ class _DictionaryEntryDetailsSheet extends StatelessWidget {
                   ),
                   ShareButton(
                     shareUrl: entry.route,
-                    contacts: shareContacts,
+                    loadContacts: loadContacts,
                     emptyStateLabel: 'No chats yet',
                     onShareToContact: (contact, _) => onShareToContact(contact),
                   ),

@@ -35,7 +35,7 @@ class _ThemeManagerScreenState extends State<ThemeManagerScreen> with TickerProv
 
   List<CustomThemeModel> _myThemes = [];
   List<CustomThemeModel> _communityThemes = [];
-  List<ShareContact> _shareContacts = const [];
+  Set<ShareContact> _shareContacts = const {};
   final Map<String, Chat> _chatByPartnerId = {};
   final Set<String> _savedThemeIds = {};
   final Set<String> _ownedThemeIds = {};
@@ -349,7 +349,7 @@ class _ThemeManagerScreenState extends State<ThemeManagerScreen> with TickerProv
     final thirtyDaysAgo = now.subtract(const Duration(days: 30));
     final currentThemeLink = '${Uri.base.origin}/themes/${theme.id}';
     final chats = localSeenService.getChats();
-    final contacts = <ShareContact>[];
+    final contacts = <ShareContact>{};
     final chatMap = <String, Chat>{};
 
     for (final chat in chats) {
@@ -403,7 +403,6 @@ class _ThemeManagerScreenState extends State<ThemeManagerScreen> with TickerProv
   }
 
   Future<void> _openShareForTheme(CustomThemeModel theme) async {
-    await _prepareShareContactsForTheme(theme);
     if (!mounted) return;
     showModalBottomSheet(
       context: context,
@@ -426,7 +425,10 @@ class _ThemeManagerScreenState extends State<ThemeManagerScreen> with TickerProv
                const SizedBox(height: 8),
                ShareButton(
                  shareUrl: DeepLinkBuilder.themes(themeId: theme.id),
-                 contacts: _shareContacts,
+                 loadContacts: () async {
+                   await _prepareShareContactsForTheme(theme);
+                   return _shareContacts;
+                 },
                  onCopyLink: (l) async {
                   await Clipboard.setData(ClipboardData(text: l));
                   if (!ctx.mounted) return;

@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:lumox/logic/chat/chat_message.dart';
 import 'package:lumox/logic/dictionary/dictionary_entry.dart';
 import 'package:lumox/ui/animations/slide_morph_transitions.dart';
-import 'package:lumox/ui/misc/avatar.dart';
 import 'package:lumox/ui/screens/chat/message_avatar.dart';
 import 'package:lumox/ui/theme/theme_ui_values.dart';
 import 'package:lumox/ui/widgets/dictionary/dictionary_linkifier.dart';

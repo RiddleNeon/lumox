@@ -186,7 +186,7 @@ class RadialQuestLayouter {
 
       if (children.isEmpty) return;
 
-      final spread = 1.4;
+      const spread = 1.4;
 
       for (int i = 0; i < children.length; i++) {
         final child = children[i];
@@ -375,7 +375,7 @@ class RadialQuestLayouter {
   /// EDGE ANCHORS
   /// ==========================================================================
 
-  Offset edgePointTowards(_LayoutNode from, _LayoutNode to) {
+  Offset _edgePointTowards(_LayoutNode from, _LayoutNode to) {
     final dx = to.x - from.x;
     final dy = to.y - from.y;
 

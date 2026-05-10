@@ -28,7 +28,9 @@ class ShareContact {
 /// A button that expands inline and lets users copy a link or share to a contact.
 class ShareButton extends StatefulWidget {
   final String shareUrl;
-  final List<ShareContact> contacts;
+
+  final Future<Set<ShareContact>> Function() loadContacts;
+
   final Future<void> Function(String link)? onCopyLink;
   final Future<void> Function(ShareContact contact, String link)? onShareToContact;
   final VoidCallback? onShared;
@@ -38,7 +40,7 @@ class ShareButton extends StatefulWidget {
   const ShareButton({
     super.key,
     required this.shareUrl,
-    required this.contacts,
+    required this.loadContacts,
     this.onCopyLink,
     this.onShareToContact,
     this.onShared,
@@ -59,24 +61,32 @@ class _ShareButtonState extends State<ShareButton> with SingleTickerProviderStat
 
   bool _expanded = false;
   bool _copying = false;
+  bool _loadingContacts = false;
+
   String? _sendingContactId;
+
+  Set<ShareContact>? _contacts;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 260),
-      reverseDuration: const Duration(milliseconds: 170),
-    );
+
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 260), reverseDuration: const Duration(milliseconds: 170));
+
     _menuSize = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic);
-    _menuFade = CurvedAnimation(parent: _controller, curve: const Interval(0.1, 1, curve: Curves.easeOut), reverseCurve: Curves.easeIn);
-    _menuSlide = Tween<Offset>(begin: const Offset(0, 0.07), end: Offset.zero).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic),
+
+    _menuFade = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.1, 1, curve: Curves.easeOut),
+      reverseCurve: Curves.easeIn,
     );
-    _iconTurn = Tween<double>(begin: 0, end: 0.125).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic),
-    );
+
+    _menuSlide = Tween<Offset>(
+      begin: const Offset(0, 0.07),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic));
+
+    _iconTurn = Tween<double>(begin: 0, end: 0.125).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic));
   }
 
   @override
@@ -85,26 +95,65 @@ class _ShareButtonState extends State<ShareButton> with SingleTickerProviderStat
     super.dispose();
   }
 
+  Future<void> _ensureContactsLoaded() async {
+    if (_contacts != null || _loadingContacts) return;
+
+    setState(() => _loadingContacts = true);
+
+    try {
+      final contacts = await widget.loadContacts();
+
+      if (!mounted) return;
+
+      setState(() {
+        _contacts = contacts;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loadingContacts = false);
+      }
+    }
+  }
+
+  Future<void> reloadContacts() async {
+    setState(() {
+      _contacts = null;
+    });
+
+    await _ensureContactsLoaded();
+  }
+
   List<ShareContact> get _sortedContacts {
-    final sorted = List<ShareContact>.of(widget.contacts);
+    final sorted = List<ShareContact>.of(_contacts ?? []);
+
     sorted.sort((a, b) {
       final byCount = b.recentShareCount.compareTo(a.recentShareCount);
       if (byCount != 0) return byCount;
+
       final aTime = a.lastSharedAt;
       final bTime = b.lastSharedAt;
-      if (aTime == null && bTime == null) return a.name.compareTo(b.name);
+
+      if (aTime == null && bTime == null) {
+        return a.name.compareTo(b.name);
+      }
+
       if (aTime == null) return 1;
       if (bTime == null) return -1;
+
       final byTime = bTime.compareTo(aTime);
       if (byTime != 0) return byTime;
       return a.name.compareTo(b.name);
     });
+
     return sorted;
   }
 
   Future<void> _toggleExpanded() async {
     if (_copying || _sendingContactId != null) return;
     final next = !_expanded;
+    if (next) {
+      await _ensureContactsLoaded();
+    }
     setState(() => _expanded = next);
     widget.onExpandedChanged?.call(next);
     if (next) {
@@ -124,7 +173,7 @@ class _ShareButtonState extends State<ShareButton> with SingleTickerProviderStat
     setState(() => _copying = true);
     try {
       final link = Uri.base.origin + widget.shareUrl;
-      
+
       if (widget.onCopyLink != null) {
         await widget.onCopyLink!(link);
       } else {
@@ -159,7 +208,10 @@ class _ShareButtonState extends State<ShareButton> with SingleTickerProviderStat
       }
     } finally {
       if (mounted) {
-        setState(() => _sendingContactId = null);
+        setState(() {
+          reloadContacts();
+          _sendingContactId = null;
+        });
       }
     }
   }
@@ -183,10 +235,7 @@ class _ShareButtonState extends State<ShareButton> with SingleTickerProviderStat
               opacity: _menuFade,
               child: SlideTransition(
                 position: _menuSlide,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _buildInlineMenu(context, cs),
-                ),
+                child: Padding(padding: const EdgeInsets.only(bottom: 8), child: _buildInlineMenu(context, cs)),
               ),
             ),
           ),
@@ -202,11 +251,7 @@ class _ShareButtonState extends State<ShareButton> with SingleTickerProviderStat
                   builder: (context, child) {
                     return Transform.rotate(
                       angle: _iconTurn.value,
-                      child: Icon(
-                        CupertinoIcons.paperplane_fill,
-                        size: 28,
-                        color: _expanded ? cs.primary : cs.onSurface.withValues(alpha: 0.9),
-                      ),
+                      child: Icon(CupertinoIcons.paperplane_fill, size: 28, color: _expanded ? cs.primary : cs.onSurface.withValues(alpha: 0.9)),
                     );
                   },
                 ),
@@ -230,13 +275,7 @@ class _ShareButtonState extends State<ShareButton> with SingleTickerProviderStat
             color: cs.surfaceContainerHigh.withValues(alpha: 0.95),
             borderRadius: BorderRadius.circular(context.uiRadiusLg),
             border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.55)),
-            boxShadow: [
-              BoxShadow(
-                color: cs.shadow.withValues(alpha: 0.18),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-            ],
+            boxShadow: [BoxShadow(color: cs.shadow.withValues(alpha: 0.18), blurRadius: 16, offset: const Offset(0, 8))],
           ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
@@ -244,30 +283,26 @@ class _ShareButtonState extends State<ShareButton> with SingleTickerProviderStat
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _ActionTile(
-                  icon: CupertinoIcons.link,
-                  label: _copying ? 'Copying...' : 'Copy video link',
-                  busy: _copying,
-                  onTap: _copyLink,
-                ),
+                _ActionTile(icon: CupertinoIcons.link, label: _copying ? 'Copying...' : 'Copy video link', busy: _copying, onTap: _copyLink),
+
                 const SizedBox(height: 9),
-                if (contacts.isEmpty)
+
+                if (_loadingContacts)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))),
+                  )
+                else if (contacts.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    child: Text(
-                      widget.emptyStateLabel,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                    ),
+                    child: Text(widget.emptyStateLabel, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                   )
                 else
                   Wrap(
                     alignment: WrapAlignment.end,
                     spacing: 8,
                     runSpacing: 8,
-                    children: [
-                      for (int i = 0; i < contacts.length; i++)
-                        _buildAnimatedContactChip(i: i, contact: contacts[i], colorScheme: cs),
-                    ],
+                    children: [for (int i = 0; i < contacts.length; i++) _buildAnimatedContactChip(i: i, contact: contacts[i], colorScheme: cs)],
                   ),
               ],
             ),
@@ -279,7 +314,9 @@ class _ShareButtonState extends State<ShareButton> with SingleTickerProviderStat
 
   Widget _buildAnimatedContactChip({required int i, required ShareContact contact, required ColorScheme colorScheme}) {
     final start = (0.2 + (i * 0.07)).clamp(0, 0.8).toDouble();
+
     final end = (start + 0.35).clamp(start + 0.05, 1).toDouble();
+
     final chipCurve = CurvedAnimation(
       parent: _controller,
       curve: Interval(start, end, curve: Curves.easeOutCubic),
@@ -332,12 +369,7 @@ class _ActionTile extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onPrimaryContainer, fontWeight: FontWeight.w600),
                 ),
               ),
-              if (busy)
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: cs.onPrimaryContainer),
-                ),
+              if (busy) SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: cs.onPrimaryContainer)),
             ],
           ),
         ),
@@ -364,9 +396,7 @@ class _ContactChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: isSending
-          ? colorScheme.tertiaryContainer
-          : (alreadySharedWithThisVideo ? colorScheme.secondaryContainer : colorScheme.surfaceContainer),
+      color: isSending ? colorScheme.tertiaryContainer : (alreadySharedWithThisVideo ? colorScheme.secondaryContainer : colorScheme.surfaceContainer),
       borderRadius: BorderRadius.circular(context.uiRadiusMd),
       child: InkWell(
         borderRadius: BorderRadius.circular(context.uiRadiusMd),
@@ -403,23 +433,12 @@ class _ContactChip extends StatelessWidget {
               if (!isSending && alreadySharedWithThisVideo)
                 Padding(
                   padding: const EdgeInsets.only(left: 6),
-                  child: Icon(
-                    CupertinoIcons.checkmark_circle_fill,
-                    size: 14,
-                    color: colorScheme.onSecondaryContainer,
-                  ),
+                  child: Icon(CupertinoIcons.checkmark_circle_fill, size: 14, color: colorScheme.onSecondaryContainer),
                 ),
               if (isSending)
                 Padding(
                   padding: const EdgeInsets.only(left: 6),
-                  child: SizedBox(
-                    width: 12,
-                    height: 12,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.8,
-                      color: colorScheme.onTertiaryContainer,
-                    ),
-                  ),
+                  child: SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.8, color: colorScheme.onTertiaryContainer)),
                 ),
             ],
           ),

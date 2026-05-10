@@ -51,10 +51,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
 	_loadSubjects();
 	_loadEntries();
 	_loadAliasIndex();
-	WidgetsBinding.instance.addPostFrameCallback((_) {
-	  if (!mounted) return;
-	  _prepareShareContacts();
-	});
   }
 
   @override
@@ -168,7 +164,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     });
   }
 
-  List<ShareContact> _contactsForEntry(DictionaryEntry entry) {
+  Set<ShareContact> _contactsForEntry(DictionaryEntry entry) {
     final link = entry.route;
     return _shareContacts.map((contact) {
       final lastSharedAt = _lastSharedLinkByPartnerId[contact.id]?[link];
@@ -181,7 +177,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         alreadySharedWithThisVideo: lastSharedAt != null,
         lastSharedThisVideoAt: lastSharedAt,
       );
-    }).toList();
+    }).toSet();
   }
 
   Future<void> _shareToContact(ShareContact contact, DictionaryEntry entry) async {
@@ -212,7 +208,11 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
           entry: entry,
           entries: entries,
           titleIndex: titleIndex,
-          shareContacts: _contactsForEntry(entry),
+          loadContacts: () async {
+            await _prepareShareContacts();
+            
+            return _contactsForEntry(entry);
+          },
           onOpenQuest: () {
             Navigator.of(ctx).pop();
             context.go(entry.questRoute);
@@ -364,7 +364,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
 									),
 									ShareButton(
 									  shareUrl: entry.route,
-									  contacts: _contactsForEntry(entry),
+									  loadContacts: () async => _contactsForEntry(entry),
 									  emptyStateLabel: 'No chats yet',
 									  onShareToContact: (contact, _) => _shareToContact(contact, entry),
 									),
@@ -413,7 +413,7 @@ class _DictionaryEntryDetailsSheet extends StatelessWidget {
   final DictionaryEntry entry;
   final List<DictionaryEntry> entries;
   final Map<String, DictionaryEntry> titleIndex;
-  final List<ShareContact> shareContacts;
+  final Future<Set<ShareContact>> Function() loadContacts;
   final VoidCallback onOpenQuest;
   final Future<void> Function(ShareContact contact) onShareToContact;
   final Map<String, int> _aliasIndex;
@@ -422,7 +422,7 @@ class _DictionaryEntryDetailsSheet extends StatelessWidget {
     required this.entry,
     required this.entries,
     required this.titleIndex,
-    required this.shareContacts,
+    required this.loadContacts,
     required this.onOpenQuest,
     required this.onShareToContact, required Map<String, int> aliasIndex,
   }) : _aliasIndex = aliasIndex;
@@ -478,7 +478,7 @@ class _DictionaryEntryDetailsSheet extends StatelessWidget {
                 ),
                 ShareButton(
                   shareUrl: entry.route,
-                  contacts: shareContacts,
+                  loadContacts: loadContacts,
                   emptyStateLabel: 'No chats yet',
                   onShareToContact: (contact, _) => onShareToContact(contact),
                 ),
