@@ -86,7 +86,7 @@ class _StreakCardState extends State<StreakCard> {
 
   int _computeFirstShownDay() {
     final int lastDay = widget.completedDays;
-    final int completedWindowStart = (lastDay - widget.maxCompletedDaysShown).clamp(0, lastDay);
+    final int completedWindowStart = (lastDay - widget.maxCompletedDaysShown).clamp(0, lastDay+1);
     return completedWindowStart;
   }
 
@@ -187,7 +187,7 @@ class _StreakCardState extends State<StreakCard> {
                 AnimatedPositioned(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeOutCubic,
-                  top: expanded ? 16 : 60,
+                  top: expanded ? 16 : 50,
                   left: expanded ? -22 : 12,
                   child: Align(
                     alignment: expanded ? Alignment.topLeft : Alignment.topCenter,

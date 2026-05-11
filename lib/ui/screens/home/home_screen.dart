@@ -680,7 +680,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       width: MediaQuery.of(context).size.width * 0.75,
       decoration: BoxDecoration(color: cs.secondaryContainer, borderRadius: BorderRadius.circular(context.uiRadiusLg)),
-      child: const StreakCard(completedDays: 3)
+      child: StreakCard(completedDays: currentUserStreak)
     );
   }
   

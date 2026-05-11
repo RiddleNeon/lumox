@@ -449,7 +449,7 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
               ),
             ),
             const SizedBox(height: 8),
-            Text('Find videos & creators', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 15)),
+            Text('Find videos, creators and more!', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 15)),
             const SizedBox(height: 256),
             _buildSearchField(cs),
           ],

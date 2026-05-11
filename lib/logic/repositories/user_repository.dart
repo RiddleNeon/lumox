@@ -814,6 +814,52 @@ class UserRepository {
     }
   }
   
+  
+  Future<int> getUserStreak() async {
+    try {
+      final response = await supabaseClient.from('user_streaks').select('streak').eq('user_id', currentUser.id).maybeSingle();
+      print("response: $response");
+      return (response?['streak'] as int?) ?? 0;
+    } catch (e) {
+      print('Error requesting Streak: $e');
+      return 0;
+    }
+  }
+  
+  Future<bool> hasIncreasedStreakToday() async {
+    try {
+      final response = await supabaseClient.from('user_streaks').select('updated_at').eq('user_id', currentUser.id).maybeSingle();
+      if (response == null) return false;
+      final lastUpdated = DateTime.parse(response['last_updated'] as String).toLocal();
+      final now = DateTime.now();
+      return lastUpdated.year == now.year && lastUpdated.month == now.month && lastUpdated.day == now.day; //fixme time zones
+    } catch (e) {
+      print('Error checking streak update: $e');
+      return false;
+    }
+  }
+  
+  Future<int> getBestStreak() async {
+    try {
+      final response = await supabaseClient.from('user_streaks').select('best_streak').eq('user_id', currentUser.id).maybeSingle();
+      return (response?['best_streak'] as int?) ?? 0;
+    } catch (e) {
+      print('Error fetching best streak: $e');
+      return 0;
+    }
+  }
+  
+  Future<int> requestStreakUpdate() async {
+    try {
+      final response = await supabaseClient.rpc('request_streak_update');
+      return (response as int?) ?? -1;
+    } catch (e) {
+      print('Error updating streak: $e');
+      return -1;
+    }
+  }
+  
+  
   Future<void> setSetting(String userId, String key, String value) async {
     try {
       await supabaseClient.from('profile_settings').upsert({'user_id': userId, 'setting_key': key, 'setting_value': value});

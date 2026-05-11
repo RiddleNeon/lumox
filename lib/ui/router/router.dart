@@ -11,8 +11,8 @@ import 'package:lumox/ui/screens/chat/chat_managing_screen.dart';
 import 'package:lumox/ui/screens/home/home_screen.dart';
 import 'package:lumox/ui/screens/profile_screen.dart';
 import 'package:lumox/ui/screens/quests/quest_screen.dart';
-import 'package:lumox/ui/screens/settings/settings_screen.dart';
 import 'package:lumox/ui/screens/search_screen/search_screen.dart';
+import 'package:lumox/ui/screens/settings/settings_screen.dart';
 import 'package:lumox/ui/video/short_video_player.dart';
 import 'package:lumox/ui/widgets/bottom_navigation_bar.dart';
 
@@ -29,8 +29,7 @@ void initRouter() {
     navigatorKey: appNavigatorKey,
     observers: [RouteObserver()],
     redirect: (context, state) async {
-      
-      if(firstRoute && state.uri.path == '/feed'){
+      if (firstRoute && state.uri.path == '/feed') {
         firstRoute = false;
         return '/home';
       }
@@ -160,8 +159,12 @@ void initRouter() {
           ),
           GoRoute(
             path: '/settings',
-            pageBuilder: (context, state) =>
-                SlideMorphTransitions.page<void>(key: state.pageKey, child: const GeneralSettingsScreen(), beginOffset: const Offset(0.03, 0.0), beginScale: 0.993),
+            pageBuilder: (context, state) => SlideMorphTransitions.page<void>(
+              key: state.pageKey,
+              child: const GeneralSettingsScreen(),
+              beginOffset: const Offset(0.03, 0.0),
+              beginScale: 0.993,
+            ),
           ),
           GoRoute(
             path: '/chat',
@@ -226,7 +229,19 @@ void initRouter() {
                 beginScale: 0.993,
               );
             },
-          )
+          ),
+          GoRoute(
+            path: '/u/:userId',
+            pageBuilder: (context, state) => SlideMorphTransitions.page<void>(
+              key: state.pageKey,
+              child: _DeepLinkProfileScreen(
+                userId: state.pathParameters['userId'] ?? '',
+                initialTabIndex: _profileTabIndexFromQuery(state.uri.queryParameters['tab']),
+              ),
+              beginOffset: const Offset(0.03, 0.0),
+              beginScale: 0.993,
+            ),
+          ),
         ],
       ),
       GoRoute(
@@ -314,6 +329,44 @@ class RouteObserver extends NavigatorObserver {
     });
   }
 }
+
+
+class _DeepLinkProfileScreen extends StatelessWidget {
+  const _DeepLinkProfileScreen({required this.userId, required this.initialTabIndex});
+
+  final String userId;
+  final int initialTabIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    if (userId.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return FutureBuilder(
+      future: userRepository.getUser(userId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+
+        final profile = snapshot.data!;
+        final ownProfile = profile.id == currentUser.id;
+        return ProfileScreen(
+          initialProfile: profile,
+          ownProfile: ownProfile,
+          hasBackButton: true,
+          initialTabIndex: initialTabIndex,
+          onFollowChange: (followed) {},
+        );
+      },
+    );
+  }
+}
+
 
 class _DeepLinkVideoScreen extends StatelessWidget {
   const _DeepLinkVideoScreen({required this.videoId, this.sharedVideoIds = const []});
@@ -446,15 +499,15 @@ bool _parseZoomOut(String? value) {
 }
 
 List<String> _parseVideoIds(String? raw) {
-   if (raw == null || raw.trim().isEmpty) return const [];
-   final seen = <String>{};
-   final ids = <String>[];
-   for (final part in raw.split(',')) {
-     final id = part.trim();
-     if (id.isEmpty) continue;
-     if (seen.add(id)) {
-       ids.add(id);
-     }
-   }
-   return ids;
- }
+  if (raw == null || raw.trim().isEmpty) return const [];
+  final seen = <String>{};
+  final ids = <String>[];
+  for (final part in raw.split(',')) {
+    final id = part.trim();
+    if (id.isEmpty) continue;
+    if (seen.add(id)) {
+      ids.add(id);
+    }
+  }
+  return ids;
+}

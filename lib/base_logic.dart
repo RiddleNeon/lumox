@@ -32,7 +32,6 @@ set currentUser(UserProfile newUser) {
 }
 
 UserProfile? _currentUser;
-
 bool get userLoggedIn => _currentUser != null;
 
 VideoFeedViewModel get feedViewModel => _feedViewModel ??= VideoFeedViewModel();
@@ -41,8 +40,11 @@ VideoFeedViewModel? _feedViewModel;
 YoutubeFeedViewModel? _youtubeFeedViewModel;
 
 RecommendationVideoProvider? _videoProvider;
-
 RecommendationVideoProvider get videoProvider => _videoProvider ??= RecommendationVideoProvider();
+
+late int currentUserStreak;
+bool get hasIncreasedStreakToday => _hasIncreasedStreakToday;
+bool _hasIncreasedStreakToday = false;
 
 Future<void> initLogic() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,6 +64,26 @@ Future<void> onUserLogin(UserProfile user, bool firstTime) async {
   await clearAllWillPlaySoonReservations(userId: user.id);
   await initLocalSeenService();
   await applyThemeFromServer();
+  await syncUserStreak();
+}
+
+Future<void> syncUserStreak() async {
+  currentUserStreak = await userRepository.getUserStreak();
+}
+
+Future<bool> requestStreakUpdate([bool force = false]) async {
+  if(hasIncreasedStreakToday && !force) return false;
+  final newStreak = await userRepository.requestStreakUpdate();
+  
+  _hasIncreasedStreakToday = true;
+  print("Streak update requested. New streak: $newStreak");
+  
+  if(newStreak != currentUserStreak) {
+    currentUserStreak = newStreak;
+    return true;
+  } else {
+    return false;
+  }
 }
 
 Future<void> applyThemeFromServer() async {

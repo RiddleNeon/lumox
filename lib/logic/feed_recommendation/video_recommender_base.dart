@@ -175,6 +175,11 @@ Future<void> trackInteraction({
       calculateEngagementScore(liked: liked, disliked: disliked, shared: shared, commented: commented, saved: saved, completionRate: watchTime / videoDuration),
     ),
   );
+  
+  if(!hasIncreasedStreakToday) {
+    await requestStreakUpdate();
+    print("Streak updated after interaction.");
+  }
 }
 
 Future<void> markVideosWillPlaySoon({
