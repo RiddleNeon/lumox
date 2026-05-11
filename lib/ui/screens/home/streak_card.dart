@@ -58,6 +58,36 @@ class _StreakCardState extends State<StreakCard> {
     "You're on fire, keep it up!",
     "Streaks: the secret to success!",
     "Your streak is your superpower!",
+    "Keep going, you're doing amazing!",
+    "You're building something great!",
+    "Small steps every day!",
+    "Your future self will thank you!",
+    "Consistency wins every time!",
+    "Another day, another victory!",
+    "Keep the momentum alive!",
+    "You're stronger than yesterday!",
+    "Progress is happening, keep moving!",
+    "You're on the right track!",
+    "Don't stop now!",
+    "Every single day counts!",
+    "You're making it happen!",
+    "Stay consistent, stay unstoppable!",
+    "One more day stronger!",
+    "Your streak is getting powerful!",
+    "Keep pushing forward!",
+    "You're proving it to yourself!",
+    "Daily effort creates big results!",
+    "You're doing better than you think!",
+    "Keep showing up!",
+    "You're creating something awesome!",
+    "This streak is yours, protect it!",
+    "You came too far to quit now!",
+    "Momentum is on your side!",
+    "You're locked in now!",
+    "Discipline is paying off!",
+    "Another successful day!",
+    "Your dedication is inspiring!",
+    "The grind is worth it!",
   ];
 
   late String _currentMessage;
@@ -345,30 +375,6 @@ class _StreakCardState extends State<StreakCard> {
         ),
       ),
     );
-  }
-
-  Offset _computeOverlayPosition({required double width}) {
-    if (expanded) {
-      return const Offset(-22, 16);
-    }
-
-    final scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
-
-    final visibleIndex = ((scrollOffset + 40) / _itemHeight).floor();
-
-    final laneX = math.sin(visibleIndex * 0.8) * 80.0;
-
-    final bool itemsAreLeft = laneX < 0;
-
-    const horizontalPadding = 18.0;
-    const topPadding = 18.0;
-    const overlayWidth = 220.0;
-
-    if (itemsAreLeft) {
-      return Offset(width - overlayWidth - horizontalPadding, topPadding);
-    }
-
-    return const Offset(horizontalPadding, topPadding);
   }
 }
 

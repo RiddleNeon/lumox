@@ -4,27 +4,6 @@ import 'dart:ui';
 import 'package:lumox/logic/quests/quest.dart';
 import 'package:lumox/logic/quests/quest_system.dart';
 
-/// ============================================================================
-/// RADIAL QUEST LAYOUT ENGINE
-/// ============================================================================
-///
-/// Ziele:
-/// - organisches radial layout
-/// - stabile physics
-/// - echte rechteck-kollisionen
-/// - parent-basierte verzweigungen
-/// - pseudo-zufällige skill-tree optik
-/// - weniger crossings
-/// - bessere edge anchors
-///
-/// Inspiration:
-/// - Path of Exile
-/// - Civilization
-/// - Sphere Grid
-/// - Destiny
-///
-/// ============================================================================
-
 class RadialQuestLayoutConfig {
   /// Abstand zwischen Depth-Ringen
   final double layerSpacing;
@@ -78,10 +57,6 @@ class RadialQuestLayouter {
   late Map<int, _LayoutNode> _nodes;
   late Random _random;
 
-  /// ==========================================================================
-  /// ENTRY
-  /// ==========================================================================
-
   void layout(QuestSystem system) {
     _random = Random(config.seed);
 
@@ -103,10 +78,6 @@ class RadialQuestLayouter {
 
     _writeBack(system);
   }
-
-  /// ==========================================================================
-  /// BUILD GRAPH
-  /// ==========================================================================
 
   void _buildGraph(QuestSystem system) {
     _nodes = {};
@@ -131,10 +102,6 @@ class RadialQuestLayouter {
       }
     }
   }
-
-  /// ==========================================================================
-  /// DEPTH ASSIGNMENT
-  /// ==========================================================================
 
   void _assignDepths() {
     final roots = _nodes.values.where((n) => n.incoming.isEmpty).toList();
@@ -161,10 +128,6 @@ class RadialQuestLayouter {
       }
     }
   }
-
-  /// ==========================================================================
-  /// ANGLE PROPAGATION
-  /// ==========================================================================
 
   void _assignAngles() {
     final roots = _nodes.values.where((n) => n.incoming.isEmpty).toList();
@@ -206,10 +169,6 @@ class RadialQuestLayouter {
     }
   }
 
-  /// ==========================================================================
-  /// INITIAL POSITIONING
-  /// ==========================================================================
-
   void _assignInitialPositions() {
     for (final node in _nodes.values) {
       final radius = node.depth * config.layerSpacing + node.quest.difficulty * 120;
@@ -219,10 +178,6 @@ class RadialQuestLayouter {
     }
   }
 
-  /// ==========================================================================
-  /// PHYSICS
-  /// ==========================================================================
-
   void _runPhysics() {
     final nodes = _nodes.values.toList();
 
@@ -230,10 +185,6 @@ class RadialQuestLayouter {
       for (final node in nodes) {
         double fx = 0;
         double fy = 0;
-
-        /// ================================================================
-        /// REPULSION
-        /// ================================================================
 
         for (final other in nodes) {
           if (node == other) continue;
@@ -249,10 +200,6 @@ class RadialQuestLayouter {
           fy += dy * force;
         }
 
-        /// ================================================================
-        /// EDGE SPRINGS
-        /// ================================================================
-
         for (final neighbor in [...node.incoming, ...node.outgoing]) {
           final dx = neighbor.x - node.x;
 
@@ -261,10 +208,6 @@ class RadialQuestLayouter {
           fx += dx * config.springStrength;
           fy += dy * config.springStrength;
         }
-
-        /// ================================================================
-        /// RADIAL CONSTRAINT
-        /// ================================================================
 
         final targetRadius = node.depth * config.layerSpacing;
 
@@ -278,10 +221,6 @@ class RadialQuestLayouter {
           fy += (node.y / currentRadius) * radialDelta * config.radialStrength;
         }
 
-        /// ================================================================
-        /// APPLY
-        /// ================================================================
-
         node.vx = (node.vx + fx * 0.003) * 0.82;
 
         node.vy = (node.vy + fy * 0.003) * 0.82;
@@ -291,10 +230,7 @@ class RadialQuestLayouter {
       }
     }
   }
-
-  /// ==========================================================================
-  /// RECTANGLE OVERLAP REMOVAL
-  /// ==========================================================================
+  
 
   void _removeOverlaps() {
     final nodes = _nodes.values.toList();
@@ -344,11 +280,7 @@ class RadialQuestLayouter {
       if (!moved) break;
     }
   }
-
-  /// ==========================================================================
-  /// GRID
-  /// ==========================================================================
-
+  
   void _snapToGrid() {
     for (final node in _nodes.values) {
       node.x = (node.x / config.gridSize).round() * config.gridSize;
@@ -356,11 +288,7 @@ class RadialQuestLayouter {
       node.y = (node.y / config.gridSize).round() * config.gridSize;
     }
   }
-
-  /// ==========================================================================
-  /// WRITE BACK
-  /// ==========================================================================
-
+  
   void _writeBack(QuestSystem system) {
     for (final node in _nodes.values) {
       final oldQuest = system.getQuestById(node.quest.id);
@@ -370,31 +298,7 @@ class RadialQuestLayouter {
       system.upsertQuest(updated);
     }
   }
-
-  /// ==========================================================================
-  /// EDGE ANCHORS
-  /// ==========================================================================
-
-  Offset _edgePointTowards(_LayoutNode from, _LayoutNode to) {
-    final dx = to.x - from.x;
-    final dy = to.y - from.y;
-
-    final hw = from.quest.sizeX / 2;
-    final hh = from.quest.sizeY / 2;
-
-    final scaleX = dx == 0 ? double.infinity : hw / dx.abs();
-
-    final scaleY = dy == 0 ? double.infinity : hh / dy.abs();
-
-    final scale = min(scaleX, scaleY);
-
-    return Offset(from.x + dx * scale, from.y + dy * scale);
-  }
 }
-
-/// ============================================================================
-/// INTERNAL NODE
-/// ============================================================================
 
 class _LayoutNode {
   final Quest quest;

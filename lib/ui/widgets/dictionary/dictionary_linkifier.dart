@@ -266,51 +266,6 @@ String linkifyDictionaryEntriesForSubject({
   return _replaceMatchesWithSubjectRef(data, pattern, filtered, skipRanges);
 }
 
-String _linkifyDictionaryEntries(String data, Map<String, DictionaryEntry> entriesByTitle) {
-  if (data.trim().isEmpty) return data;
-  final pattern = RegExp(
-    _buildDictionaryPattern(entriesByTitle.keys.toList()),
-    multiLine: true,
-    caseSensitive: false,
-  );
-  final skipRanges = _collectMarkdownSkipRanges(data);
-  if (skipRanges.isEmpty) return _replaceMatches(data, pattern, entriesByTitle, skipRanges);
-  return _replaceMatches(data, pattern, entriesByTitle, skipRanges);
-}
-
-String _replaceMatches(
-  String data,
-  RegExp pattern,
-  Map<String, DictionaryEntry> entriesByTitle,
-  List<TextRange> skipRanges,
-) {
-  final buffer = StringBuffer();
-  var cursor = 0;
-
-  for (final match in pattern.allMatches(data)) {
-    final start = match.start;
-    final end = match.end;
-    if (_isInSkipRange(start, end, skipRanges)) {
-      continue;
-    }
-    if (start < cursor) continue;
-
-    final matched = match.group(0) ?? '';
-    final entry = entriesByTitle[matched.trim().toLowerCase()];
-    if (entry == null) continue;
-
-    buffer.write(data.substring(cursor, start));
-    buffer.write('[$matched](${entry.route})');
-    cursor = end;
-  }
-
-  if (cursor < data.length) {
-    buffer.write(data.substring(cursor));
-  }
-
-  return buffer.toString();
-}
-
 String _replaceMatchesWithSubjectRef(
   String data,
   RegExp pattern,

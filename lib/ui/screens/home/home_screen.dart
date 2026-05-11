@@ -51,6 +51,36 @@ class _HomeScreenState extends State<HomeScreen> {
     "Time to discover some fresh content.",
     "What are we learning today, {username}?",
     "Keep that learning momentum going!",
+    "Welcome back, {username}!",
+    "Ready to learn something new today?",
+    "Let's make today productive, {username}!",
+    "Your next breakthrough starts now!",
+    "Great to see you again, {username}!",
+    "Time to keep the momentum going!",
+    "What are we discovering today?",
+    "Another day, another step forward!",
+    "Your learning journey continues!",
+    "Let's build something awesome today!",
+    "Keep growing, {username}!",
+    "Today's a great day to learn something new!",
+    "You're making real progress!",
+    "Let's keep the streak alive!",
+    "One more session closer to your goals!",
+    "Learning never looked this good!",
+    "Back again? Love the consistency!",
+    "Let's turn curiosity into progress!",
+    "Ready for your next challenge?",
+    "Keep showing up, it matters!",
+    "New day, new knowledge!",
+    "Your future self is cheering for you!",
+    "Let's continue where you left off!",
+    "Progress starts with showing up!",
+    "Something interesting is waiting for you!",
+    "Stay curious, {username}!",
+    "Another opportunity to improve!",
+    "You're doing amazing, keep going!",
+    "Let's make today count!",
+    "Your journey keeps getting better!",
   ];
 
   @override
@@ -71,7 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _setupWelcomeMessage() {
     final msg = _rawWelcomeMessages[Random().nextInt(_rawWelcomeMessages.length)];
-    _welcomeMessage = msg.replaceAll('{username}', currentUser.username);
+    _welcomeMessage = msg.replaceAll('{username}', currentUser.displayName);
   }
 
   Future<void> _loadContent() async {
