@@ -15,13 +15,16 @@ class StreakCard extends StatefulWidget {
   final DateTime? streakStartDate;
   final int? rankPercentile;
   final int? freezesLeft;
+  
+  final bool hasIncreasedStreakToday;
 
   const StreakCard({
     super.key,
     required this.completedDays,
     this.additionalShownDays = 8,
     this.maxCompletedDaysShown = 5,
-
+    this.hasIncreasedStreakToday = false,
+    
     this.longestStreak = 0,
     this.totalActiveDays = 0,
     this.streakStartDate,
@@ -71,10 +74,13 @@ class _StreakCardState extends State<StreakCard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.completedDays != widget.completedDays ||
         oldWidget.additionalShownDays != widget.additionalShownDays ||
-        oldWidget.maxCompletedDaysShown != widget.maxCompletedDaysShown) {
+        oldWidget.maxCompletedDaysShown != widget.maxCompletedDaysShown ||
+        oldWidget.hasIncreasedStreakToday != widget.hasIncreasedStreakToday) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _setInitialScroll());
     }
   }
+
+  bool get _showUpcomingDay => !widget.hasIncreasedStreakToday;
 
   void _setInitialScroll() {
     final height = expanded ? 400.0 : 200.0;
@@ -96,7 +102,7 @@ class _StreakCardState extends State<StreakCard> {
   }
 
   double _computeOffset(double viewportHeight) {
-    final firstShownDay = _computeFirstShownDay();
+    final firstShownDay = _computeFirstShownDay() + (widget.hasIncreasedStreakToday ? 1 : 0);
     final totalItems = _computeTotalItems(firstShownDay);
 
     final currentIndex = widget.completedDays - firstShownDay;
@@ -168,9 +174,12 @@ class _StreakCardState extends State<StreakCard> {
                     itemBuilder: (context, index) {
                       final day = firstShownDay + index + 1;
                       final isCompleted = day <= widget.completedDays;
-                      final isCurrent = day == widget.completedDays + 1;
-                      final isPrevCompleted =
-                          (day - 1) <= widget.completedDays && (day - 1) > 0;
+                      final isCurrent = _showUpcomingDay && day == widget.completedDays + 1;
+                      
+                      final isPrevCompleted = (day - 1) <= (widget.completedDays) && (day - 1) > 0 && !(widget.hasIncreasedStreakToday && (day - 1) == widget.completedDays);
+                      final drawPathToNext = (day + 1) <= widget.completedDays || !widget.hasIncreasedStreakToday && (day + 1) == widget.completedDays + 1;
+                      
+                      final hasNextItem = index < totalItems - 1;
 
                       return StreakItem(
                         index: index,
@@ -178,7 +187,9 @@ class _StreakCardState extends State<StreakCard> {
                         isCompleted: isCompleted,
                         isCurrent: isCurrent,
                         isPrevCompleted: isPrevCompleted,
-                        itemHeight: _itemHeight,
+                        hasNextItem: hasNextItem,
+                        itemHeight: _itemHeight, 
+                        drawPathToNext: drawPathToNext,
                       );
                     },
                   ),
@@ -368,6 +379,8 @@ class StreakItem extends StatelessWidget {
   final bool isCompleted;
   final bool isCurrent;
   final bool isPrevCompleted;
+  final bool drawPathToNext;
+  final bool hasNextItem;
   final double itemHeight;
 
   const StreakItem({
@@ -377,7 +390,9 @@ class StreakItem extends StatelessWidget {
     required this.isCompleted,
     required this.isCurrent,
     required this.isPrevCompleted,
-    required this.itemHeight,
+    required this.hasNextItem,
+    required this.itemHeight, 
+    required this.drawPathToNext,
   });
   
   double _getOffsetX(int idx) {
@@ -414,8 +429,9 @@ class StreakItem extends StatelessWidget {
                 prevX: prevX,
                 nextX: nextX,
                 isCompleted: isCompleted,
-                isPrevCompleted: isPrevCompleted,
-                isFirst: index == 0 && !isPrevCompleted,
+                drawPathToPrev: isPrevCompleted,
+                hasNextItem: hasNextItem,
+                isFirst: index == 0 && !isPrevCompleted, drawPathToNext: drawPathToNext,
               ),
             ),
           ),
@@ -455,7 +471,7 @@ class StreakItem extends StatelessWidget {
                         color: textColorDark,
                       ),
                     ),
-                    if (isCurrent)
+                    if (isCurrent && !isCompleted)
                       Container(
                         margin: const EdgeInsets.only(top: 4),
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -493,7 +509,9 @@ class PathPainter extends CustomPainter {
   final double prevX;
   final double nextX;
   final bool isCompleted;
-  final bool isPrevCompleted;
+  final bool drawPathToPrev;
+  final bool drawPathToNext;
+  final bool hasNextItem;
   final bool isFirst;
 
   PathPainter({
@@ -501,7 +519,9 @@ class PathPainter extends CustomPainter {
     required this.prevX,
     required this.nextX,
     required this.isCompleted,
-    required this.isPrevCompleted,
+    required this.drawPathToPrev,
+    required this.drawPathToNext,
+    required this.hasNextItem,
     required this.isFirst,
   });
 
@@ -515,20 +535,30 @@ class PathPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.miter;
     
     if (!isFirst) {
-      paint.color = isPrevCompleted ? const Color(0xFF4ADE80) : Colors.black26;
+      paint.color = drawPathToPrev ? const Color(0xFF4ADE80) : Colors.black26;
       final pathBottom = Path()
         ..moveTo(centerX + currentX, size.height / 2)
         ..lineTo(centerX + (currentX + prevX) / 2, size.height);
       canvas.drawPath(pathBottom, paint);
     }
 
-    paint.color = isCompleted ? const Color(0xFF4ADE80) : Colors.black26;
-    final pathTop = Path()
-      ..moveTo(centerX + currentX, size.height / 2)
-      ..lineTo(centerX + (currentX + nextX) / 2, 0);
-    canvas.drawPath(pathTop, paint);
+    if (hasNextItem) {
+      paint.color = drawPathToNext ? const Color(0xFF4ADE80) : Colors.black26;
+      final pathTop = Path()
+        ..moveTo(centerX + currentX, size.height / 2)
+        ..lineTo(centerX + (currentX + nextX) / 2, 0);
+      canvas.drawPath(pathTop, paint);
+    }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant PathPainter oldDelegate) {
+    return currentX != oldDelegate.currentX ||
+        prevX != oldDelegate.prevX ||
+        nextX != oldDelegate.nextX ||
+        isCompleted != oldDelegate.isCompleted ||
+        drawPathToPrev != oldDelegate.drawPathToPrev ||
+        hasNextItem != oldDelegate.hasNextItem ||
+        isFirst != oldDelegate.isFirst;
+  }
 }
