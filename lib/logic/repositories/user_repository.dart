@@ -849,6 +849,22 @@ class UserRepository {
     }
   }
   
+  Future<({int streak, int bestStreak, DateTime? lastUpdated, bool isUpdatedToday})> getStreakInfo() async {
+    try {
+      final response = await supabaseClient.from('user_streaks').select().eq('user_id', currentUser.id).maybeSingle();
+      if (response == null) return (streak: 0, bestStreak: 0, lastUpdated: null, isUpdatedToday: false);
+      return (
+        streak: response['streak'] as int? ?? 0,
+        bestStreak: response['best_streak'] as int? ?? 0,
+        lastUpdated: response['updated_at'] != null ? DateTime.parse(response['updated_at'] as String).toLocal() : null,
+        isUpdatedToday: response['updated_at'] != null ? DateTime.parse(response['updated_at'] as String).toLocal().day == DateTime.now().day : false,
+      );
+    } catch (e) {
+      print('Error fetching streak info: $e');
+      return (streak: 0, bestStreak: 0, lastUpdated: null, isUpdatedToday: false);
+    }
+  }
+  
   Future<int> requestStreakUpdate() async {
     try {
       final response = await supabaseClient.rpc('request_streak_update');

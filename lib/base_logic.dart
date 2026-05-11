@@ -46,6 +46,9 @@ late int currentUserStreak;
 bool get hasIncreasedStreakToday => _hasIncreasedStreakToday;
 bool _hasIncreasedStreakToday = false;
 
+int get bestUserStreak => _bestUserStreak;
+int _bestUserStreak = 0;
+
 Future<void> initLogic() async {
   WidgetsFlutterBinding.ensureInitialized();
   fvp.registerWith();
@@ -68,7 +71,14 @@ Future<void> onUserLogin(UserProfile user, bool firstTime) async {
 }
 
 Future<void> syncUserStreak() async {
-  currentUserStreak = await userRepository.getUserStreak();
+  final streakInfo = await userRepository.getStreakInfo();
+  
+  currentUserStreak = streakInfo.streak;
+  _hasIncreasedStreakToday = streakInfo.isUpdatedToday;
+  _bestUserStreak = streakInfo.bestStreak;
+  
+  print("User streak info synced. Current streak: $currentUserStreak, Best streak: $bestUserStreak, Updated today: $_hasIncreasedStreakToday");
+  
 }
 
 Future<bool> requestStreakUpdate([bool force = false]) async {
