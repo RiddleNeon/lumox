@@ -13,8 +13,9 @@ import 'package:lumox/logic/repositories/video_repository.dart';
 import 'package:lumox/logic/video/video.dart';
 import 'package:lumox/ui/screens/chat/message_avatar.dart';
 import 'package:lumox/ui/screens/dictionary/dictionary_picker_sheet.dart';
-import 'package:lumox/ui/screens/search_screen/search_screen.dart';
+import 'package:lumox/ui/screens/search_screen/search_video_overlay.dart';
 import 'package:lumox/ui/widgets/dictionary/dictionary_linkifier.dart';
+import 'package:lumox/ui/widgets/loading/shimmer_block.dart';
 import 'package:lumox/ui/theme/theme_ui_values.dart';
 
 import '../../../base_logic.dart';
@@ -307,7 +308,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       if (wasEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_scrollController.hasClients) {
-            _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+            _scrollController.jumpTo(_scrollController.position.maxScrollExtent); //fixme scrool controller attached to multiple scroll views
           }
           _initialViewportAnchored = true;
           _startInitialBottomLock();
@@ -682,16 +683,38 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     });
   }
 
-  @override
-  void dispose() {
-    _textController.dispose();
-    _scrollController.dispose();
-    _focusNode.dispose();
-    _typingDotController.dispose();
-    for (final c in _bubbleControllers) {
-      c.dispose();
-    }
-    super.dispose();
+  Widget _buildMessageSkeleton(ColorScheme cs) {
+    final radius = BorderRadius.circular(context.uiRadiusLg);
+    return ListView(
+      controller: _scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: ShimmerBlock(width: 220, height: 40, borderRadius: radius, color: cs.surfaceContainerHigh),
+        ),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerRight,
+          child: ShimmerBlock(width: 180, height: 36, borderRadius: radius, color: cs.surfaceContainerHigh),
+        ),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: ShimmerBlock(width: 240, height: 54, borderRadius: radius, color: cs.surfaceContainerHigh),
+        ),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerRight,
+          child: ShimmerBlock(width: 200, height: 40, borderRadius: radius, color: cs.surfaceContainerHigh),
+        ),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: ShimmerBlock(width: 160, height: 36, borderRadius: radius, color: cs.surfaceContainerHigh),
+        ),
+      ],
+    );
   }
 
   @override
@@ -805,55 +828,66 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
   }
 
   Widget _buildMessageList(ThemeData theme, ColorScheme cs) {
-    return NotificationListener<UserScrollNotification>(
-      onNotification: (notification) {
-        if (notification.direction != ScrollDirection.idle && _keepInitialBottomLock) {
-          _keepInitialBottomLock = false;
-          _bottomLockSession++;
-        }
-        // Only load older pages after a deliberate upward user scroll.
-        if (notification.direction == ScrollDirection.forward) {
-          _historyLoadArmedByUserScroll = true;
-        }
-        return false;
-      },
-      child: GestureDetector(
-        onTap: () => _focusNode.unfocus(),
-        child: ListView.builder(
-          controller: _scrollController,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          itemCount: _messages.length,
-          itemBuilder: (ctx, i) {
-            final msg = _messages[i];
-            final prevMsg = i > 0 ? _messages[i - 1] : null;
-            final nextMsg = i < _messages.length - 1 ? _messages[i + 1] : null;
+    final isLoading = _messages.isEmpty && preloading;
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: isLoading
+          ? KeyedSubtree(key: const ValueKey('chat_skeleton'), child: _buildMessageSkeleton(cs))
+          : KeyedSubtree(
+              key: const ValueKey('chat_messages'),
+              child: NotificationListener<UserScrollNotification>(
+                onNotification: (notification) {
+                  if (notification.direction != ScrollDirection.idle && _keepInitialBottomLock) {
+                    _keepInitialBottomLock = false;
+                    _bottomLockSession++;
+                  }
+                  // Only load older pages after a deliberate upward user scroll.
+                  if (notification.direction == ScrollDirection.forward) {
+                    _historyLoadArmedByUserScroll = true;
+                  }
+                  return false;
+                },
+                child: GestureDetector(
+                  onTap: () => _focusNode.unfocus(),
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    itemCount: _messages.length,
+                    itemBuilder: (ctx, i) {
+                      final msg = _messages[i];
+                      final prevMsg = i > 0 ? _messages[i - 1] : null;
+                      final nextMsg = i < _messages.length - 1 ? _messages[i + 1] : null;
 
-            final showAvatar = !msg.isMe && (nextMsg == null || nextMsg.isMe || _isNewGroup(msg, nextMsg));
-            final showTimestamp = nextMsg == null || msg.timestamp.difference(nextMsg.timestamp).abs() > const Duration(minutes: 10);
+                      final showAvatar = !msg.isMe && (nextMsg == null || nextMsg.isMe || _isNewGroup(msg, nextMsg));
+                      final showTimestamp = nextMsg == null || msg.timestamp.difference(nextMsg.timestamp).abs() > const Duration(minutes: 10);
 
-            final ctrl = i < _bubbleControllers.length ? _bubbleControllers[i] : AnimationController(vsync: this, value: 1.0);
+                      final ctrl = i < _bubbleControllers.length ? _bubbleControllers[i] : AnimationController(vsync: this, value: 1.0);
 
-            return MessageBubble(
-              key: ValueKey(msg.id),
-              message: msg,
-              showAvatar: showAvatar,
-              showTimestamp: showTimestamp,
-              isFirst: prevMsg == null || prevMsg.isMe != msg.isMe,
-              isLast: nextMsg == null || nextMsg.isMe != msg.isMe,
-              animationController: ctrl,
-              colorScheme: cs,
-              theme: theme,
-              recipientName: widget.recipientName ?? '',
-              recipientAvatarUrl: widget.recipientAvatarUrl,
-              onLongPress: () => _showMessageActions(msg),
-              onRouteTap: _openRouteFromMessage,
-              onDictionaryTap: _showDictionaryPreview,
-              previewFutureFor: _previewFutureFor,
-              dictionaryEntriesByTitle: _dictionaryEntriesByTitle,
-            );
-          },
-        ),
-      ),
+                      return MessageBubble(
+                        key: ValueKey(msg.id),
+                        message: msg,
+                        showAvatar: showAvatar,
+                        showTimestamp: showTimestamp,
+                        isFirst: prevMsg == null || prevMsg.isMe != msg.isMe,
+                        isLast: nextMsg == null || nextMsg.isMe != msg.isMe,
+                        animationController: ctrl,
+                        colorScheme: cs,
+                        theme: theme,
+                        recipientName: widget.recipientName ?? '',
+                        recipientAvatarUrl: widget.recipientAvatarUrl,
+                        onLongPress: () => _showMessageActions(msg),
+                        onRouteTap: _openRouteFromMessage,
+                        onDictionaryTap: _showDictionaryPreview,
+                        previewFutureFor: _previewFutureFor,
+                        dictionaryEntriesByTitle: _dictionaryEntriesByTitle,
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
     );
   }
 

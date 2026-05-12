@@ -11,9 +11,10 @@ import 'package:lumox/logic/users/user_model.dart';
 import 'package:lumox/logic/video/video.dart';
 import 'package:lumox/ui/misc/avatar.dart';
 import 'package:lumox/ui/screens/home/streak_card.dart';
+import 'package:lumox/ui/widgets/loading/shimmer_block.dart';
 
 import '../../theme/theme_ui_values.dart';
-import '../search_screen/search_screen.dart';
+import '../search_screen/search_video_overlay.dart';
 import '../search_screen/widgets/search_video_card.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -300,27 +301,49 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: _buildSectionTitle(cs, 'Your Path', ' Keep progressing'),
                 ),
               ),
-              SliverToBoxAdapter(child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: _buildStreakCard(cs),
-              )),
-              SliverToBoxAdapter(child: _buildHorizontalQuestsList(cs)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: context.uiSpace(16)),
+                  child: _buildSectionCard(
+                    cs: cs,
+                    child: Column(
+                      children: [
+                        _buildStreakCard(cs),
+                        SizedBox(height: context.uiSpace(12)),
+                        Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.35)),
+                        SizedBox(height: context.uiSpace(12)),
+                        _buildHorizontalQuestsList(cs, padding: EdgeInsets.zero),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
 
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.only(top: context.uiSpace(32), bottom: context.uiSpace(16), left: 14),
+                  padding: EdgeInsets.only(top: context.uiSpace(24), bottom: context.uiSpace(16), left: 14),
                   child: _buildSectionTitle(cs, 'Following', ' Latest from your creators'),
                 ),
               ),
-              SliverToBoxAdapter(child: _buildFollowingCarousel(cs)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: context.uiSpace(16)),
+                  child: _buildSectionCard(cs: cs, child: _buildFollowingCarousel(cs)),
+                ),
+              ),
 
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.only(top: context.uiSpace(32), bottom: context.uiSpace(16), left: 14),
+                  padding: EdgeInsets.only(top: context.uiSpace(24), bottom: context.uiSpace(16), left: 14),
                   child: _buildSectionTitle(cs, 'Discover', ' Trending right now', onSeeAll: () => GoRouter.of(context).push('/feed')),
                 ),
               ),
-              SliverToBoxAdapter(child: _buildDiscoverCarouselGrid(cs)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: context.uiSpace(16)),
+                  child: _buildSectionCard(cs: cs, child: _buildDiscoverCarouselGrid(cs)),
+                ),
+              ),
 
               SliverToBoxAdapter(child: SizedBox(height: context.uiSpace(60))),
             ],
@@ -386,9 +409,34 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildSectionCard({required ColorScheme cs, required Widget child}) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: context.uiSpace(12), vertical: context.uiSpace(12)),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(context.uiRadiusLg),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
+      ),
+      child: child,
+    );
+  }
+
   Widget _buildFollowingCarousel(ColorScheme cs) {
     if (_loading && _followedCreators.isEmpty) {
-      return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+      return Column(
+        children: [
+          Row(
+            children: List.generate(4, (_) {
+              return const Padding(
+                padding: EdgeInsets.only(right: 12),
+                child: ShimmerBlock(width: 56, height: 56, isCircle: true),
+              );
+            }),
+          ),
+          SizedBox(height: context.uiSpace(16)),
+          ShimmerBlock(height: 320, borderRadius: BorderRadius.circular(context.uiRadiusLg)),
+        ],
+      );
     }
 
     if (_followedCreators.isEmpty) {
@@ -407,7 +455,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
-            padding: EdgeInsets.symmetric(horizontal: context.uiSpace(16)),
+            padding: EdgeInsets.symmetric(horizontal: context.uiSpace(4)),
             itemCount: _followedCreators.length,
             separatorBuilder: (_, _) => const SizedBox(width: 16),
             itemBuilder: (context, index) {
@@ -510,10 +558,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCreatorColumn(ColorScheme cs, dynamic creator, List<Video>? videos) {
     if (videos == null) {
-      return Container(
-        decoration: BoxDecoration(color: cs.surfaceContainerLow, borderRadius: BorderRadius.circular(context.uiRadiusLg)),
-        child: const Center(child: CircularProgressIndicator()),
-      );
+      return ShimmerBlock(height: 320, borderRadius: BorderRadius.circular(context.uiRadiusLg));
     }
 
     final profileButton = _buildProfileButton(cs, creator, hasVideos: videos.isNotEmpty);
@@ -603,7 +648,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildHorizontalQuestsList(ColorScheme cs) {
+  Widget _buildHorizontalQuestsList(ColorScheme cs, {EdgeInsetsGeometry? padding}) {
     _resetDailyGoalIfNeeded();
     final dailyGoalProgress = (_dailyVideosStarted / _dailyGoalTarget).clamp(0.0, 1.0);
 
@@ -612,7 +657,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: ListView(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        padding: EdgeInsets.symmetric(horizontal: context.uiSpace(16)),
+        padding: padding ?? EdgeInsets.symmetric(horizontal: context.uiSpace(16)),
         children: [
           _buildQuestCard(
             cs: cs,
@@ -704,11 +749,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   
-  // a streak card that displays your current learning streak and encourages you to keep it going. It should show the number of consecutive days you've watched videos. it shows these days as flames on pedestals, with the ones you have completed lit up and the current day flashing if you haven't completed it yet. tapping the card takes you to your learning path to continue your streak.
   Widget _buildStreakCard(ColorScheme cs) {
-    // This is a placeholder for the streak card. The actual implementation would depend on how you track and store the user's learning streak.
     return Container(
-      width: MediaQuery.of(context).size.width * 0.75,
       decoration: BoxDecoration(color: cs.secondaryContainer, borderRadius: BorderRadius.circular(context.uiRadiusLg)),
       child: StreakCard(
         completedDays: currentUserStreak,
@@ -721,7 +763,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildDiscoverCarouselGrid(ColorScheme cs) {
     if (_loading) {
-      return const SizedBox(height: 280, child: Center(child: CircularProgressIndicator()));
+      return Column(
+        children: [
+          ShimmerBlock(height: 160, borderRadius: BorderRadius.circular(context.uiRadiusLg)),
+          const SizedBox(height: 16),
+          ShimmerBlock(height: 160, borderRadius: BorderRadius.circular(context.uiRadiusLg)),
+          const SizedBox(height: 16),
+          ShimmerBlock(height: 160, borderRadius: BorderRadius.circular(context.uiRadiusLg)),
+        ],
+      );
     }
 
     final items = _discoverVideos ?? [];

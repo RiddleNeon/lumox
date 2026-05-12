@@ -12,7 +12,7 @@ import 'package:lumox/ui/misc/avatar.dart';
 import 'package:lumox/ui/misc/preloading_list.dart';
 import 'package:lumox/ui/router/router.dart';
 import 'package:lumox/ui/screens/search_screen/search_query.dart';
-import 'package:lumox/ui/screens/search_screen/search_screen.dart';
+import 'package:lumox/ui/screens/search_screen/search_video_overlay.dart';
 import 'package:lumox/ui/screens/search_screen/widgets/search_user_card.dart';
 import 'package:lumox/ui/screens/search_screen/widgets/search_video_card.dart';
 import 'package:lumox/ui/widgets/logout_button.dart';

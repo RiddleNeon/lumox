@@ -50,7 +50,6 @@ class _StreakCardState extends State<StreakCard> {
     "Small steps every day!",
     "Every day counts, keep it up!",
     "Your future self will thank you.",
-    "Streaks are the new black!",
     "Don't break the chain!",
     "One day at a time.",
     "Your dedication is inspiring!",
@@ -79,7 +78,6 @@ class _StreakCardState extends State<StreakCard> {
     "Daily effort creates big results!",
     "You're doing better than you think!",
     "Keep showing up!",
-    "You're creating something awesome!",
     "This streak is yours, protect it!",
     "You came too far to quit now!",
     "Momentum is on your side!",
@@ -188,35 +186,22 @@ class _StreakCardState extends State<StreakCard> {
                 return Stack(
                   children: [
                     ScrollConfiguration(
-                      behavior: const MaterialScrollBehavior()
-                          .copyWith(scrollbars: _isDoneExpanding && expanded),
+                      behavior: const MaterialScrollBehavior().copyWith(scrollbars: _isDoneExpanding && expanded),
                       child: ListView.builder(
                         controller: _scrollController,
                         reverse: true,
-                        padding: EdgeInsets.only(
-                          top: expanded ? 90 : 120,
-                          bottom: 20,
-                        ),
-                        physics: expanded
-                            ? const BouncingScrollPhysics()
-                            : const NeverScrollableScrollPhysics(),
+                        padding: EdgeInsets.only(top: expanded ? 90 : 120, bottom: 20),
+                        physics: expanded ? const BouncingScrollPhysics() : const NeverScrollableScrollPhysics(),
                         itemCount: totalItems,
                         itemBuilder: (context, index) {
                           final day = firstShownDay + index + 1;
                           final isCompleted = day <= widget.completedDays;
-                          final isCurrent =
-                              _showUpcomingDay && day == widget.completedDays + 1;
+                          final isCurrent = _showUpcomingDay && day == widget.completedDays + 1;
 
                           final isPrevCompleted =
-                              (day - 1) <= (widget.completedDays) &&
-                                  (day - 1) > 0 &&
-                                  !(widget.hasIncreasedStreakToday &&
-                                      (day - 1) == widget.completedDays);
+                              (day - 1) <= (widget.completedDays) && (day - 1) > 0 && !(widget.hasIncreasedStreakToday && (day - 1) == widget.completedDays);
 
-                          final drawPathToNext =
-                              (day + 1) <= widget.completedDays ||
-                                  !widget.hasIncreasedStreakToday &&
-                                      (day + 1) == widget.completedDays + 1;
+                          final drawPathToNext = (day + 1) <= widget.completedDays || !widget.hasIncreasedStreakToday && (day + 1) == widget.completedDays + 1;
 
                           final hasNextItem = index < totalItems - 1;
 
@@ -238,21 +223,18 @@ class _StreakCardState extends State<StreakCard> {
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOutCubic,
                       top: expanded ? 16 : 18,
-                      left: expanded ? -22 : 18,
+                      left: expanded ? -22 : 0,
                       child: AnimatedScale(
                         scale: expanded ? 0.8 : 1.0,
                         duration: const Duration(milliseconds: 300),
                         curve: Curves.easeOutBack,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 220),
-                          child: _buildOverlay(),
-                        ),
+                        child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 220), child: _buildOverlay()),
                       ),
                     ),
                   ],
                 );
               },
-            )
+            ),
           ),
         ),
       ),

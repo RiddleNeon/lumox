@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:lumox/logic/chat/chat_message.dart';
 import 'package:lumox/ui/misc/avatar.dart';
 import 'package:lumox/ui/screens/chat/chat_screen.dart';
+import 'package:lumox/ui/widgets/loading/shimmer_block.dart';
 
 import '../../../base_logic.dart';
 import '../../../logic/chat/chat.dart';
@@ -167,31 +168,7 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
     });
   }
 
-  Widget _buildChatList(List<Chat> chats) {
-    if (loading && chats.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    if (chats.isEmpty) {
-      return const Center(child: Text("No Chats yet!"));
-    }
-
-    return ListView.separated(
-      itemCount: chats.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        return _buildChatEntry(chats[index], (message) => onMessageUpdate(chats[index], message));
-      },
-      controller: _scrollController,
-    );
-  }
-
-  Widget _buildChatEntry(Chat chat, void Function(ChatMessage) onMessageUpdate) {
-    final theme = Theme.of(context);
-
-    final lastMessageTime = chat.lastMessageAt ?? chat.createdAt;
-    final timeString = formatTime(lastMessageTime);
-
+  String _formatLastMessage(Chat chat) {
     String formattedMessage = chat.lastMessage;
     if (ChatRoutePreviewResolver.isPureRouteMessage(formattedMessage)) {
       final uri = Uri.tryParse(formattedMessage.trim());
@@ -204,6 +181,206 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
         else formattedMessage = '🔗 Shared a link';
       }
     }
+    return formattedMessage;
+  }
+
+  List<Chat> _highlightedChats(List<Chat> chats) {
+    if (chats.isEmpty) return const [];
+    final sorted = [...chats];
+    sorted.sort((a, b) {
+      final aTime = (a.lastMessageAt ?? a.createdAt).toLocal();
+      final bTime = (b.lastMessageAt ?? b.createdAt).toLocal();
+      return bTime.compareTo(aTime);
+    });
+    return sorted.take(3).toList();
+  }
+
+  Widget _buildHighlightsSection(List<Chat> chats) {
+    final theme = Theme.of(context);
+    final highlights = _highlightedChats(chats);
+    if (highlights.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Top chats', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+              Text('Recent', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 150,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.only(right: 6),
+            itemCount: highlights.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final chat = highlights[index];
+              return SizedBox(width: 220, child: _buildHighlightCard(chat));
+            },
+          ),
+        ),
+        const SizedBox(height: 18),
+      ],
+    );
+  }
+
+  Widget _buildHighlightCard(Chat chat) {
+    final theme = Theme.of(context);
+    final timeString = formatTime(chat.lastMessageAt ?? chat.createdAt);
+    final formattedMessage = _formatLastMessage(chat);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(context.uiRadiusLg),
+        color: theme.colorScheme.surfaceContainerHigh,
+        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _openChat(chat, (message) => onMessageUpdate(chat, message)),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Avatar(imageUrl: chat.partnerProfileImageUrl, name: chat.partnerName, colorScheme: theme.colorScheme),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        chat.partnerName,
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  formattedMessage.isEmpty ? 'Start a conversation' : formattedMessage,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+                const Spacer(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(timeString, style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.secondary)),
+                    if (!chat.lastMessageByMe)
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(color: theme.colorScheme.tertiary, shape: BoxShape.circle),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingSkeleton() {
+    final theme = Theme.of(context);
+    final radius = BorderRadius.circular(context.uiRadiusLg);
+    return ListView(
+      controller: _scrollController,
+      children: [
+        Text('Top chats', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 150,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: 3,
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              return SizedBox(
+                width: 220,
+                child: ShimmerBlock(borderRadius: radius),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text('All chats', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 12),
+        ...List.generate(5, (_) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: ShimmerBlock(height: 78, borderRadius: radius),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildChatList(List<Chat> chats) {
+    if (loading && chats.isEmpty) {
+      return _buildLoadingSkeleton();
+    }
+
+    if (chats.isEmpty) {
+      return const Center(child: Text("No Chats yet!"));
+    }
+
+    final showLoadingFooter = loading && chats.isNotEmpty;
+    final itemCount = chats.length + 1 + (showLoadingFooter ? 1 : 0);
+
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.only(bottom: 12),
+      itemCount: itemCount,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHighlightsSection(chats),
+              Text('All chats', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+            ],
+          );
+        }
+
+        final chatIndex = index - 1;
+        if (chatIndex < chats.length) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildChatEntry(chats[chatIndex], (message) => onMessageUpdate(chats[chatIndex], message)),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: ShimmerBlock(height: 72, borderRadius: BorderRadius.circular(context.uiRadiusLg)),
+        );
+      },
+    );
+  }
+
+  Widget _buildChatEntry(Chat chat, void Function(ChatMessage) onMessageUpdate) {
+    final theme = Theme.of(context);
+
+    final lastMessageTime = chat.lastMessageAt ?? chat.createdAt;
+    final timeString = formatTime(lastMessageTime);
+
+    final formattedMessage = _formatLastMessage(chat);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
@@ -316,7 +493,7 @@ Widget buildMessagingScreen(Chat chat, void Function(ChatMessage) onMessageUpdat
     future: userRepository.getUser(chat.partnerId),
     builder: (context, asyncSnapshot) {
       if (!asyncSnapshot.hasData) {
-        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        return const _MessagingScreenSkeleton();
       }
 
       return MessagingScreen(
@@ -348,4 +525,36 @@ Widget buildMessagingScreen(Chat chat, void Function(ChatMessage) onMessageUpdat
       );
     },
   );
+}
+
+class _MessagingScreenSkeleton extends StatelessWidget {
+  const _MessagingScreenSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: cs.surface,
+      appBar: AppBar(
+        backgroundColor: cs.surfaceContainer,
+        elevation: 0,
+        title: const Text('Loading chat…'),
+        centerTitle: true,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          children: [
+            ShimmerBlock(height: 60, borderRadius: BorderRadius.circular(18)),
+            const SizedBox(height: 12),
+            ShimmerBlock(height: 60, borderRadius: BorderRadius.circular(18)),
+            const SizedBox(height: 12),
+            ShimmerBlock(height: 60, borderRadius: BorderRadius.circular(18)),
+            const Spacer(),
+            ShimmerBlock(height: 54, borderRadius: BorderRadius.circular(999)),
+          ],
+        ),
+      ),
+    );
+  }
 }

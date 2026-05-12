@@ -1,28 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lumox/base_logic.dart';
 import 'package:lumox/logic/chat/chat.dart';
 import 'package:lumox/logic/chat/chat_message.dart';
 import 'package:lumox/logic/dictionary/dictionary_entry.dart';
-import 'package:lumox/logic/feed_recommendation/search_video_result_recommender.dart';
 import 'package:lumox/logic/local_storage/local_seen_service.dart';
 import 'package:lumox/logic/repositories/dictionary_repository.dart';
 import 'package:lumox/logic/repositories/video_repository.dart';
 import 'package:lumox/logic/users/user_model.dart';
 import 'package:lumox/logic/video/video.dart';
-import 'package:lumox/ui/animations/slide_morph_transitions.dart';
 import 'package:lumox/ui/misc/preloading_list.dart';
 import 'package:lumox/ui/router/deep_link_builder.dart';
 import 'package:lumox/ui/screens/search_screen/search_query.dart';
+import 'package:lumox/ui/screens/search_screen/search_video_overlay.dart';
 import 'package:lumox/ui/screens/search_screen/widgets/animated_search_bar.dart';
+import 'package:lumox/ui/screens/search_screen/widgets/dictionary_entry_details_sheet.dart';
+import 'package:lumox/ui/screens/search_screen/widgets/search_dictionary_tab.dart';
+import 'package:lumox/ui/screens/search_screen/widgets/search_segment_button.dart';
 import 'package:lumox/ui/screens/search_screen/widgets/search_user_card.dart';
 import 'package:lumox/ui/screens/search_screen/widgets/search_video_card.dart';
-import 'package:lumox/ui/video/short_video_player.dart';
-import 'package:lumox/ui/widgets/dictionary/dictionary_linkifier.dart';
-import 'package:lumox/ui/widgets/overlays/share_button.dart';
 
 import '../../theme/theme_ui_values.dart';
+import '../../widgets/overlays/share_button.dart';
 
 enum SearchScope { videos, profiles, dictionary, all }
 
@@ -395,7 +394,7 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
       isScrollControlled: true,
       useSafeArea: true,
       builder: (ctx) {
-        return _DictionaryEntryDetailsSheet(
+        return DictionaryEntryDetailsSheet(
           entry: entry,
           entries: entries,
           titleIndex: titleIndex,
@@ -413,20 +412,6 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
         );
       },
     );
-  }
-
-  String _difficultyLabel(double d) {
-    if (d < 0.2) return 'Beginner';
-    if (d < 0.4) return 'Novice';
-    if (d < 0.6) return 'Intermediate';
-    if (d < 0.8) return 'Advanced';
-    return 'Expert';
-  }
-
-  Color _difficultyColor(double d, ColorScheme cs) {
-    if (d < 0.4) return cs.tertiary;
-    if (d < 0.7) return cs.primary;
-    return cs.error;
   }
 
   Widget _buildLandingBody(ColorScheme cs) {
@@ -529,7 +514,7 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
       child: Row(
         children: [
           Expanded(
-            child: _SearchSegmentButton(
+            child: SearchSegmentButton(
               selected: _tabController.index == 0,
               onTap: () => _tabController.animateTo(0),
               icon: Icons.play_circle_outline,
@@ -538,7 +523,7 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
           ),
           const SizedBox(width: 4),
           Expanded(
-            child: _SearchSegmentButton(
+            child: SearchSegmentButton(
               selected: _tabController.index == 1,
               onTap: () => _tabController.animateTo(1),
               icon: Icons.person_outline,
@@ -547,7 +532,7 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
           ),
           const SizedBox(width: 4),
           Expanded(
-            child: _SearchSegmentButton(
+            child: SearchSegmentButton(
               selected: _tabController.index == 2,
               onTap: () => _tabController.animateTo(2),
               icon: Icons.menu_book_outlined,
@@ -592,391 +577,26 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
     }
 
     if (_tabController.index == 2) {
-      return _buildDictionaryTab(Theme.of(context).colorScheme);
+      return SearchDictionaryTab(
+        entries: _dictionaryEntries,
+        subjects: _dictionarySubjects,
+        isLoading: _dictionaryLoading,
+        query: _dictionaryQuery,
+        selectedSubject: _dictionarySelectedSubject,
+        colorScheme: Theme.of(context).colorScheme,
+        onSubjectChanged: (value) {
+          setState(() => _dictionarySelectedSubject = value);
+          _loadDictionaryEntries(query: _controller.text);
+        },
+        onOpenEntry: (entry, entries) => _openEntryDetails(context, entry, entries),
+        loadContacts: (entry) async {
+          await _prepareShareContacts();
+          return _contactsForEntry(entry);
+        },
+        onShareToContact: (contact, entry) => _shareToContact(contact, entry),
+      );
     }
 
     return const SizedBox.shrink();
-  }
-
-  Widget _buildDictionaryTab(ColorScheme cs) {
-    final entries = _dictionaryEntries;
-    final subjects = _dictionarySubjects;
-    final isLoading = _dictionaryLoading;
-    final hasQuery = _dictionaryQuery.isNotEmpty;
-    final hasSubjectFilter = _dictionarySelectedSubject != null;
-    final emptyLabel = hasQuery || hasSubjectFilter ? 'No entries match your filter' : 'No dictionary entries found';
-
-    print("building tab with subjects: $subjects, selected: $_dictionarySelectedSubject, entries: ${entries.length}, loading: $isLoading");
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String?>(
-                  initialValue: _dictionarySelectedSubject,
-                  decoration: InputDecoration(
-                    labelText: 'Subject',
-                    filled: true,
-                    fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.45),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: cs.outlineVariant),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-                    ),
-                    isDense: true,
-                  ),
-                  items: [
-                    const DropdownMenuItem<String?>(value: null, child: Text('All subjects')),
-                    ...subjects.map((subject) => DropdownMenuItem<String?>(value: subject, child: Text(subject))),
-                    if (subjects.isEmpty) DropdownMenuItem<String?>(value: _dictionarySelectedSubject, child: Text(_dictionarySelectedSubject ?? '')),
-                  ],
-                  onChanged: (value) {
-                    setState(() => _dictionarySelectedSubject = value);
-                    _loadDictionaryEntries(query: _controller.text);
-                  },
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                hasQuery || hasSubjectFilter ? '${entries.length} results' : '${entries.length} entries',
-                style: TextStyle(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-        ),
-        if (isLoading) LinearProgressIndicator(color: cs.primary, minHeight: 2),
-        Expanded(
-          child: entries.isEmpty
-              ? Center(
-                  child: Text(emptyLabel, style: TextStyle(color: cs.onSurfaceVariant)),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-                  itemCount: entries.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final entry = entries[index];
-                    final difficultyColor = _difficultyColor(entry.difficulty, cs);
-                    return Card(
-                      elevation: 0,
-                      color: cs.surfaceContainerLow,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-                      ),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(20),
-                        onTap: () => _openEntryDetails(context, entry, entries),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: Text(entry.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                                  ),
-                                  ShareButton(
-                                    shareUrl: entry.route,
-                                    loadContacts: () async {
-                                      await _prepareShareContacts();
-                                      
-                                      return _contactsForEntry(entry);
-                                    },
-                                    emptyStateLabel: 'No chats yet',
-                                    onShareToContact: (contact, _) => _shareToContact(contact, entry),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  Chip(
-                                    label: Text(entry.subject),
-                                    visualDensity: VisualDensity.compact,
-                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: difficultyColor.withValues(alpha: 0.16),
-                                      borderRadius: BorderRadius.circular(999),
-                                      border: Border.all(color: difficultyColor.withValues(alpha: 0.4)),
-                                    ),
-                                    child: Text(
-                                      '${_difficultyLabel(entry.difficulty)} · ${((entry.difficulty).clamp(0.0, 1.0) * 100).round()}%',
-                                      style: TextStyle(color: difficultyColor, fontSize: 12, fontWeight: FontWeight.w700),
-                                    ),
-                                  ),
-                                  Text('Quest #${entry.questId}', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Returns the number of likes added (can be negative if user unliked videos)
-Future<int> openVideoPlayer({required BuildContext context, required List<Video> listedVideos, required int videoIndex}) async {
-  int likes = 0;
-  await showGeneralDialog(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: 'VideoOverlay',
-    barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.6),
-    transitionDuration: const Duration(milliseconds: 280),
-    pageBuilder: (context, _, _) => SafeArea(
-      child: Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.95,
-            height: MediaQuery.of(context).size.height * 0.88,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(context.uiRadiusLg),
-              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-            ),
-            clipBehavior: Clip.hardEdge,
-            child: Stack(
-              children: [
-                VideoFeed(
-                  customVideoProvider: SearchVideoResultRecommender(listedVideos: listedVideos),
-                  itemCount: listedVideos.length,
-                  initialPage: videoIndex,
-                  onLikeChanged: (liked) => likes += liked ? 1 : -1,
-                ),
-                Positioned(
-                  right: 12,
-                  top: 12,
-                  child: GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: Theme.of(context).colorScheme.inverseSurface.withValues(alpha: 0.85), shape: BoxShape.circle),
-                      child: Icon(Icons.close_rounded, color: Theme.of(context).colorScheme.onInverseSurface, size: 20),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ),
-    transitionBuilder: (context, animation, _, child) {
-      return SlideMorphTransitions.build(animation, child, beginOffset: const Offset(0, 0.08), beginScale: 0.88);
-    },
-  );
-  return likes;
-}
-
-class _SearchSegmentButton extends StatelessWidget {
-  const _SearchSegmentButton({required this.selected, required this.onTap, required this.icon, required this.label});
-
-  final bool selected;
-  final VoidCallback onTap;
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(context.uiRadiusMd),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(context.uiRadiusMd),
-          color: selected ? cs.secondaryContainer.withValues(alpha: 0.75) : Colors.transparent,
-          border: selected ? Border.all(color: cs.outlineVariant.withValues(alpha: 0.65)) : null,
-        ),
-        child: AnimatedDefaultTextStyle(
-          duration: const Duration(milliseconds: 180),
-          style: TextStyle(
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-            fontSize: 13,
-            color: selected ? cs.onSecondaryContainer : cs.onSurfaceVariant,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 18, color: selected ? cs.onSecondaryContainer : cs.onSurfaceVariant),
-              const SizedBox(width: 6),
-              Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DictionaryEntryDetailsSheet extends StatelessWidget {
-  final DictionaryEntry entry;
-  final List<DictionaryEntry> entries;
-  final Map<String, DictionaryEntry> titleIndex;
-  final Future<Set<ShareContact>> Function() loadContacts;
-  final VoidCallback onOpenQuest;
-  final Future<void> Function(ShareContact contact) onShareToContact;
-  final Map<String, int> _dictionaryAliasIndex;
-
-  const _DictionaryEntryDetailsSheet({
-    required this.entry,
-    required this.entries,
-    required this.titleIndex,
-    required this.loadContacts,
-    required this.onOpenQuest,
-    required this.onShareToContact,
-    required Map<String, int> dictionaryAliasIndex,
-  }) : _dictionaryAliasIndex = dictionaryAliasIndex;
-
-  String _difficultyLabel(double d) {
-    if (d < 0.2) return 'Beginner';
-    if (d < 0.4) return 'Novice';
-    if (d < 0.6) return 'Intermediate';
-    if (d < 0.8) return 'Advanced';
-    return 'Expert';
-  }
-
-  Color _difficultyColor(double d, ColorScheme cs) {
-    if (d < 0.4) return cs.tertiary;
-    if (d < 0.7) return cs.primary;
-    return cs.error;
-  }
-
-  String _formatPrerequisites(DictionaryEntry entry) {
-    if (entry.prerequisites.isEmpty) return '';
-    final names = entry.prerequisites.map((p) => p.title).toList();
-    final visible = names.take(4).toList();
-    final extra = names.length - visible.length;
-    final base = visible.join(', ');
-    return extra > 0 ? '$base +$extra' : base;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final difficultyColor = _difficultyColor(entry.difficulty, cs);
-    final prereqText = _formatPrerequisites(entry);
-
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          entry.title,
-                          style: TextStyle(color: cs.onSurface, fontSize: 20, fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          entry.subject,
-                          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12, fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ShareButton(
-                    shareUrl: entry.route,
-                    loadContacts: loadContacts,
-                    emptyStateLabel: 'No chats yet',
-                    onShareToContact: (contact, _) => onShareToContact(contact),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: difficultyColor.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: difficultyColor.withValues(alpha: 0.4)),
-                    ),
-                    child: Text(
-                      '${_difficultyLabel(entry.difficulty)} · ${((entry.difficulty).clamp(0.0, 1.0) * 100).round()}%',
-                      style: TextStyle(color: difficultyColor, fontSize: 12, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  Text('Quest #${entry.questId}', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
-                ],
-              ),
-              if (prereqText.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text('Recommended prerequisites: $prereqText', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5, height: 1.4)),
-              ],
-              const SizedBox(height: 14),
-              ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.55),
-                child: SingleChildScrollView(
-                  child: DictionaryMarkdownBody(
-                    data: entry.description,
-                    entries: entries,
-                    titleIndex: dictionaryRepository.buildTitleAliasIndex(entries, _dictionaryAliasIndex),
-                    linkColor: cs.primary,
-                    onTapEntry: (dictionaryEntry) => showDictionaryEntryPreviewSheet(
-                      context,
-                      entry: dictionaryEntry,
-                      onOpenQuest: () => context.go(dictionaryEntry.questRoute),
-                      onOpenDictionary: () => context.go(dictionaryEntry.route),
-                    ),
-                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                      p: TextStyle(color: cs.onSurface, fontSize: 14.5, height: 1.55),
-                      h1: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w800),
-                      h2: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w800),
-                      h3: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Flexible(
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(onPressed: onOpenQuest, icon: const Icon(Icons.center_focus_strong_rounded), label: const Text('Open quest')),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
