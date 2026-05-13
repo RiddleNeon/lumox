@@ -5,7 +5,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lumox/logic/dictionary/dictionary_entry.dart';
-import 'package:lumox/logic/repositories/chat_repository.dart';
 import 'package:lumox/logic/repositories/dictionary_repository.dart';
 import 'package:lumox/logic/repositories/user_repository.dart';
 import 'package:lumox/logic/repositories/video_repository.dart';
@@ -567,35 +566,65 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     if (!mounted) return;
     if (messages.isEmpty) return;
 
-    final newMessages = messages
-        .map(
-          (element) => ChatMessage(
-            id: element.id,
-            text: element.text,
-            isMe: element.isMe,
-            timestamp: element.timestamp,
-            status: element.isMe ? MessageStatus.sent : MessageStatus.delivered,
-            editedAt: element.editedAt,
-            deletedAt: element.deletedAt,
-          ),
-        )
-        .toList();
+    final existingIndexById = <String, int>{
+      for (int i = 0; i < _messages.length; i++) _messages[i].id: i,
+    };
 
-    if (isNewMessage) {
-      for (final m in newMessages) {
-        widget.onMessageUpdateLocal(m);
+    final newMessages = <ChatMessage>[];
+    var didUpdateExisting = false;
+
+    for (final element in messages) {
+      final normalized = ChatMessage(
+        id: element.id,
+        text: element.text,
+        isMe: element.isMe,
+        timestamp: element.timestamp,
+        status: element.isMe ? MessageStatus.sent : MessageStatus.delivered,
+        editedAt: element.editedAt,
+        deletedAt: element.deletedAt,
+        replyToMessageId: element.replyToMessageId,
+        type: element.type,
+      );
+
+      final existingIndex = existingIndexById[normalized.id];
+      if (existingIndex != null) {
+        final current = _messages[existingIndex];
+        final shouldUpdate = current.text != normalized.text ||
+            current.timestamp != normalized.timestamp ||
+            current.editedAt != normalized.editedAt ||
+            current.deletedAt != normalized.deletedAt ||
+            current.replyToMessageId != normalized.replyToMessageId ||
+            current.type != normalized.type ||
+            current.status != normalized.status;
+        if (shouldUpdate) {
+          _messages[existingIndex] = normalized;
+          didUpdateExisting = true;
+        }
+        if (isNewMessage) {
+          widget.onMessageUpdateLocal(normalized);
+        }
+        continue;
+      }
+
+      newMessages.add(normalized);
+      if (isNewMessage) {
+        widget.onMessageUpdateLocal(normalized);
       }
     }
+
+    if (newMessages.isEmpty && !didUpdateExisting) return;
 
     for (final message in newMessages) {
       _createBubbleController(message.id, animate: false);
     }
 
     setState(() {
-      if (appendToEnd) {
-        _messages.addAll(newMessages);
-      } else {
-        _messages.insertAll(0, newMessages);
+      if (newMessages.isNotEmpty) {
+        if (appendToEnd) {
+          _messages.addAll(newMessages);
+        } else {
+          _messages.insertAll(0, newMessages);
+        }
       }
     });
     _sharedFeedVideoIds = null;

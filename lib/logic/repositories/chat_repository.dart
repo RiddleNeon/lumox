@@ -61,24 +61,43 @@ class ChatRepository {
     
     // startOffset == null => initial/recent load: sync newer server messages after latest local.
     // startOffset != null => upward pagination: fetch only older messages before the cursor.
-    DateTime? syncFrom;
-    DateTime? before;
+    final serverMessages = <ChatMessage>[];
     if (startOffset == null) {
-      if (localMessages.isNotEmpty) {
+      if (localMessages.isEmpty) {
+        serverMessages.addAll(await _fetchMessagesFromServer(
+          conversationId: conversationId,
+          otherUserId: otherUserId,
+          limit: limit,
+        ));
+      } else {
         final latestLocal = localMessages.map((m) => m.timestamp).reduce((a, b) => a.isAfter(b) ? a : b);
-        syncFrom = latestLocal;
+        final oldestLocal = localMessages.map((m) => m.timestamp).reduce((a, b) => a.isBefore(b) ? a : b);
+
+        serverMessages.addAll(await _fetchMessagesFromServer(
+          conversationId: conversationId,
+          otherUserId: otherUserId,
+          limit: limit,
+          after: latestLocal,
+        ));
+
+        final olderLimit = limit - localMessages.length;
+        if (olderLimit > 0) {
+          serverMessages.addAll(await _fetchMessagesFromServer(
+            conversationId: conversationId,
+            otherUserId: otherUserId,
+            limit: olderLimit,
+            before: oldestLocal,
+          ));
+        }
       }
     } else {
-      before = startOffset;
+      serverMessages.addAll(await _fetchMessagesFromServer(
+        conversationId: conversationId,
+        otherUserId: otherUserId,
+        limit: limit,
+        before: startOffset,
+      ));
     }
-
-    final serverMessages = await _fetchMessagesFromServer(
-      conversationId: conversationId,
-      otherUserId: otherUserId,
-      limit: limit,
-      after: syncFrom,
-      before: before,
-    );
 
     if (serverMessages.isNotEmpty) {
       // 5. Persist new server messages locally so future calls are faster.
