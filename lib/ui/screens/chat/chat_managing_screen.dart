@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:lumox/logic/chat/chat_message.dart';
 import 'package:lumox/logic/local_storage/local_seen_service.dart';
+import 'package:lumox/tools/supabase_tests/supabase_login_test.dart';
 import 'package:lumox/ui/misc/avatar.dart';
 import 'package:lumox/ui/screens/chat/chat_screen.dart';
 import 'package:lumox/ui/widgets/loading/shimmer_block.dart';
@@ -155,12 +156,21 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
     );
   }
 
-  void onMessageUpdate(Chat chat, ChatMessage message) {
+  void onMessageUpdate(Chat chat, ChatMessage message) async {
     if(message.timestamp.isBefore(chat.lastMessageAt ?? chat.createdAt)) {
       return;
     }
     
     localSeenService.sendMessageLocal(chat, message);
+
+    if(message.isMe) {
+      await supabaseClient.functions.invoke(
+          'ai-bots',
+          body: {
+            "conversation_id": chat.conversationId
+          }
+      );
+    }
 
     
     setState(() {
@@ -271,11 +281,18 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text(
-                  formattedMessage.isEmpty ? 'Start a conversation' : formattedMessage,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 32),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [Text(
+                        formattedMessage.isEmpty ? 'Start a conversation' : formattedMessage.substring(0, formattedMessage.length > 60 ? 60 : formattedMessage.length),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),]
+                    ),
+                  ),
                 ),
                 const Spacer(),
                 Row(

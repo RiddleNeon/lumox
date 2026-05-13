@@ -49,7 +49,6 @@ class ChatRepository {
 
   /// Loads messages with [otherUserId].
   Future<List<ChatMessage>> getMessagesWith(String otherUserId, {int limit = 30, DateTime? startOffset}) async {
-    // 1. Local messages first.
     final localMessages = await localSeenService.getMessagesWithLocal(otherUserId, limit: limit, startOffset: startOffset);
 
     final conversationId = await _findDirectConversationId(otherUserId);
@@ -59,8 +58,6 @@ class ChatRepository {
       return result.length > limit ? result.sublist(result.length - limit) : result;
     }
     
-    // startOffset == null => initial/recent load: sync newer server messages after latest local.
-    // startOffset != null => upward pagination: fetch only older messages before the cursor.
     final serverMessages = <ChatMessage>[];
     if (startOffset == null) {
       if (localMessages.isEmpty) {
@@ -100,11 +97,9 @@ class ChatRepository {
     }
 
     if (serverMessages.isNotEmpty) {
-      // 5. Persist new server messages locally so future calls are faster.
       await localSeenService.saveMessagesLocal(otherUserId, serverMessages);
     }
 
-    // 6. Merge: server wins for duplicates so edits/deletes are reflected quickly.
     final merged = <String, ChatMessage>{
       for (final m in localMessages) m.id: m,
       for (final m in serverMessages) m.id: m,
@@ -155,12 +150,7 @@ class ChatRepository {
 
     return orderedIds;
   }
-
-  /// Fetches messages from the `messages` table for [conversationId].
-  ///
-  /// Pass [after] to only load messages newer than that timestamp (sync mode).
-  /// Pass [before] to only load messages older than that timestamp (pagination).
-  /// When both are null all messages up to [limit] are returned.
+  
   Future<List<ChatMessage>> _fetchMessagesFromServer({
     required int conversationId,
     required String otherUserId,
@@ -173,7 +163,7 @@ class ChatRepository {
           .from('messages')
           .select('id, conversation_id, sender_id, content, type, reply_to_message_id, created_at, edited_at, deleted_at')
           .eq('conversation_id', conversationId)
-          .isFilter('deleted_at', null); // exclude soft-deleted messages
+          .isFilter('deleted_at', null);
 
       if (after != null) {
         query = query.gt('created_at', after.toUtc().toIso8601String());
