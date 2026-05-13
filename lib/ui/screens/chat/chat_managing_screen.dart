@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:lumox/logic/chat/chat_message.dart';
+import 'package:lumox/logic/local_storage/local_seen_service.dart';
 import 'package:lumox/ui/misc/avatar.dart';
 import 'package:lumox/ui/screens/chat/chat_screen.dart';
 import 'package:lumox/ui/widgets/loading/shimmer_block.dart';
@@ -158,6 +159,8 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
     if(message.timestamp.isBefore(chat.lastMessageAt ?? chat.createdAt)) {
       return;
     }
+    
+    localSeenService.sendMessageLocal(chat, message);
 
     
     setState(() {

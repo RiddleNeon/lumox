@@ -154,6 +154,8 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
 
           final shouldAutoScroll = _isNearBottom;
 
+          if (_mergeOwnRealtimeMessage(message)) return;
+
           _createBubbleController(message.id);
 
           setState(() {
@@ -218,6 +220,37 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
         });
       },
     ).subscribe();
+  }
+
+  bool _mergeOwnRealtimeMessage(ChatMessage incoming) {
+    if (!incoming.isMe) return false;
+
+    final index = _messages.indexWhere((m) {
+      if (!m.isMe) return false;
+      if (m.status == MessageStatus.delivered) return false;
+      if (m.text != incoming.text) return false;
+      final diff = m.timestamp.difference(incoming.timestamp).abs();
+      return diff <= const Duration(seconds: 5);
+    });
+
+    if (index == -1) return false;
+
+    final old = _messages[index];
+    _rekeyBubbleController(old.id, incoming.id);
+    setState(() {
+      _messages[index] = ChatMessage(
+        id: incoming.id,
+        text: incoming.text,
+        isMe: incoming.isMe,
+        timestamp: incoming.timestamp,
+        status: MessageStatus.delivered,
+        editedAt: incoming.editedAt,
+        deletedAt: incoming.deletedAt,
+        replyToMessageId: incoming.replyToMessageId,
+        type: incoming.type,
+      );
+    });
+    return true;
   }
   
   Future<ChatRoutePreview?> _previewFutureFor(ChatRouteReference ref) {
@@ -476,12 +509,14 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     bool autoScroll = false,
     DateTime? createdAt,
     String? id,
+    bool cacheLocally = true,
   }) {
     if (!mounted) return;
-    if (isNewMessage) {
+    final messageId = id ?? (createdAt ?? DateTime.now()).millisecondsSinceEpoch.toString();
+    if (isNewMessage && cacheLocally) {
       widget.onMessageUpdateLocal(
         ChatMessage(
-          id: getChatId(receiverId: widget.recipientId),
+          id: messageId,
           text: text,
           isMe: isMe,
           timestamp: createdAt ?? DateTime.now(),
@@ -489,7 +524,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       );
     }
     final msg = ChatMessage(
-      id: id ?? (createdAt ?? DateTime.now()).millisecondsSinceEpoch.toString(),
+      id: messageId,
       text: text,
       isMe: isMe,
       timestamp: createdAt ?? DateTime.now(),
@@ -616,21 +651,53 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     HapticFeedback.lightImpact();
 
     final tempId = DateTime.now().millisecondsSinceEpoch.toString();
-    _addMessage(text: text, isMe: true, isNewMessage: true, id: tempId, autoScroll: true);
+    _addMessage(text: text, isMe: true, isNewMessage: true, id: tempId, autoScroll: true, cacheLocally: false);
 
     try {
       final serverMessage = await widget.onSend(text);
       if (mounted) {
-        final index = _messages.indexWhere((m) => m.id == tempId);
-        if (index != -1) {
-          _rekeyBubbleController(tempId, serverMessage.id);
+        widget.onMessageUpdateLocal(serverMessage);
+        int existingIndex = _messages.indexWhere((m) => m.id == serverMessage.id);
+        int tempIndex = _messages.indexWhere((m) => m.id == tempId);
+
+        if (existingIndex != -1) {
           setState(() {
-            _messages[index] = ChatMessage(
+            if (tempIndex != -1) {
+              _messages.removeAt(tempIndex);
+              _disposeBubbleController(tempId);
+              if (existingIndex > tempIndex) {
+                existingIndex -= 1;
+              }
+            }
+
+            _messages[existingIndex] = ChatMessage(
               id: serverMessage.id,
               text: serverMessage.text,
               isMe: serverMessage.isMe,
               timestamp: serverMessage.timestamp,
               status: MessageStatus.delivered,
+              editedAt: serverMessage.editedAt,
+              deletedAt: serverMessage.deletedAt,
+              replyToMessageId: serverMessage.replyToMessageId,
+              type: serverMessage.type,
+            );
+          });
+          return;
+        }
+
+        if (tempIndex != -1) {
+          _rekeyBubbleController(tempId, serverMessage.id);
+          setState(() {
+            _messages[tempIndex] = ChatMessage(
+              id: serverMessage.id,
+              text: serverMessage.text,
+              isMe: serverMessage.isMe,
+              timestamp: serverMessage.timestamp,
+              status: MessageStatus.delivered,
+              editedAt: serverMessage.editedAt,
+              deletedAt: serverMessage.deletedAt,
+              replyToMessageId: serverMessage.replyToMessageId,
+              type: serverMessage.type,
             );
           });
         }
