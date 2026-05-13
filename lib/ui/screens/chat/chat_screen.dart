@@ -5,18 +5,19 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lumox/logic/dictionary/dictionary_entry.dart';
+import 'package:lumox/logic/repositories/chat_repository.dart';
 import 'package:lumox/logic/repositories/dictionary_repository.dart';
 import 'package:lumox/logic/repositories/user_repository.dart';
-import 'package:lumox/logic/users/user_model.dart';
-import 'package:lumox/logic/repositories/chat_repository.dart';
 import 'package:lumox/logic/repositories/video_repository.dart';
+import 'package:lumox/logic/users/user_model.dart';
 import 'package:lumox/logic/video/video.dart';
 import 'package:lumox/ui/screens/chat/message_avatar.dart';
 import 'package:lumox/ui/screens/dictionary/dictionary_picker_sheet.dart';
 import 'package:lumox/ui/screens/search_screen/search_video_overlay.dart';
+import 'package:lumox/ui/theme/theme_ui_values.dart';
 import 'package:lumox/ui/widgets/dictionary/dictionary_linkifier.dart';
 import 'package:lumox/ui/widgets/loading/shimmer_block.dart';
-import 'package:lumox/ui/theme/theme_ui_values.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../base_logic.dart';
 import '../../../logic/chat/chat_message.dart';
@@ -28,11 +29,11 @@ import 'message_bubble.dart';
 
 class MessagingScreen extends StatefulWidget {
   final Future<ChatMessage> Function(String message) onSend;
-  final Future<ChatMessage> Function(ChatMessage message, String newText) onEditMessage;
-  final Future<void> Function(ChatMessage message) onDeleteMessage;
+  final Future<ChatMessage> Function(ChatMessage message, String newText) onEditOwnMessage;
+  final Future<void> Function(ChatMessage message) onDeleteOwnMessage;
   final Future<List<MessageVersion>> Function(ChatMessage message) onLoadMessageVersions;
   final Future<bool> Function() canViewMessageHistory;
-  final void Function(ChatMessage message) onMessageUpdate;
+  final void Function(ChatMessage message) onMessageUpdateLocal;
   final Future<List<ChatMessage>> Function(int limit, DateTime? lastVisibleMessage) loadMoreMessages;
 
   String? get recipientName => user.displayName;
@@ -44,18 +45,21 @@ class MessagingScreen extends StatefulWidget {
   final UserProfile user;
 
   final bool isOnline;
+  
+  final int conversationId;
 
   const MessagingScreen({
     super.key,
     required this.onSend,
-    required this.onEditMessage,
-    required this.onDeleteMessage,
+    required this.onEditOwnMessage,
+    required this.onDeleteOwnMessage,
     required this.onLoadMessageVersions,
     required this.canViewMessageHistory,
     this.isOnline = true,
     required this.loadMoreMessages,
-    required this.onMessageUpdate,
-    required this.user,
+    required this.onMessageUpdateLocal,
+    required this.user, 
+    required this.conversationId,
   });
 
   @override
@@ -91,18 +95,131 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
 
   late AnimationController _typingDotController;
 
+  RealtimeChannel? _messagesChannel;
+
   @override
   void initState() {
     super.initState();
+
     _textController.addListener(_onTextChanged);
     _scrollController.addListener(_onScroll);
 
     _typingDotController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat();
+
     _loadHistoryPermission();
     _loadDictionaryEntries();
     _preloadMore(limit: _initialHistoryPageSize);
+
+    _startRealtime();
   }
 
+
+  void _startRealtime() {
+    final supabase = Supabase.instance.client;
+
+    _messagesChannel = supabase.channel(
+      'conversation-${widget.conversationId}',
+    );
+
+    _messagesChannel!.onPostgresChanges(
+      event: PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'messages',
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'conversation_id',
+        value: widget.conversationId,
+      ),
+      callback: (payload) {
+        try {
+          print("RECEIVED REALTIME MESSAGE INSERT: ${payload.newRecord}");
+          
+          final data = payload.newRecord;
+
+          final messageId = data['id'].toString();
+
+          final alreadyExists = _messages.any(
+                (m) => m.id == messageId,
+          );
+
+          if (alreadyExists) return;
+
+          final message = ChatMessage(
+            id: messageId,
+            text: data['content'] ?? '',
+            isMe: data['sender_id'] == currentUser.id,
+            timestamp: DateTime.parse(data['created_at']),
+            status: MessageStatus.delivered,
+          );
+
+          final shouldAutoScroll = _isNearBottom;
+
+          _createBubbleController(message.id);
+
+          setState(() {
+            _messages.add(message);
+          });
+
+          widget.onMessageUpdateLocal(message);
+
+          if (shouldAutoScroll) {
+            _scrollToBottom(force: true);
+          }
+        } catch (e) {
+          debugPrint('Realtime insert failed: $e');
+        }
+      },
+    ).onPostgresChanges(
+      event: PostgresChangeEvent.update,
+      schema: 'public',
+      table: 'messages',
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'conversation_id',
+        value: widget.conversationId,
+      ),
+      callback: (payload) {
+        print("UPDATE message version received: ${payload.newRecord}");
+        
+        int messageId = int.parse(payload.newRecord['id'].toString());
+        
+        ChatMessage? message = _messages.where((m) => m.id == messageId.toString()).firstOrNull;
+        if(message == null) return;
+        
+        bool isDeleted = payload.newRecord['deleted_at'] != null;
+        if(isDeleted) {
+          print("message delete received for messageId=$messageId");
+          setState(() {
+            _messages.removeWhere((m) => m.id == messageId.toString());
+            _disposeBubbleController(messageId.toString());
+          });
+          return;
+        }
+        
+        String? newContent = payload.newRecord['content'];
+        if(newContent == null || newContent == message.text) return;
+        
+        print("message version update received for messageId=$messageId, newContent=$newContent");
+        setState(() {
+          int index = _messages.indexWhere((m) => m.id == messageId.toString());
+          if(index != -1) {
+            _messages[index] = ChatMessage(
+              id: message.id,
+              text: newContent,
+              isMe: message.isMe,
+              timestamp: message.timestamp,
+              status: message.status,
+              editedAt: DateTime.parse(payload.newRecord['edited_at']),
+              type: message.type,
+              deletedAt: message.deletedAt,
+              replyToMessageId: message.replyToMessageId
+            );
+          }
+        });
+      },
+    ).subscribe();
+  }
+  
   Future<ChatRoutePreview?> _previewFutureFor(ChatRouteReference ref) {
     return _previewFutureCache.putIfAbsent(ref.route, () => ChatRoutePreviewResolver.resolve(ref));
   }
@@ -141,10 +258,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (ctx) => DictionaryPickerSheet(
-        entriesFuture: dictionaryRepository.fetchEntries(),
-        onSelect: (entry) => Navigator.of(ctx).pop(entry),
-      ),
+      builder: (ctx) => DictionaryPickerSheet(entriesFuture: dictionaryRepository.fetchEntries(), onSelect: (entry) => Navigator.of(ctx).pop(entry)),
     );
     if (selected != null) {
       await _sendDictionaryEntry(selected);
@@ -231,11 +345,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     final routeVideoId = uri.pathSegments.length > 1 ? uri.pathSegments[1] : '';
     if (routeVideoId.isEmpty) return;
 
-    final queryIds = (uri.queryParameters['ids'] ?? '')
-        .split(',')
-        .map((id) => id.trim())
-        .where((id) => id.isNotEmpty)
-        .toList();
+    final queryIds = (uri.queryParameters['ids'] ?? '').split(',').map((id) => id.trim()).where((id) => id.isNotEmpty).toList();
     final orderedIds = <String>[routeVideoId, ...queryIds];
 
     final uniqueIds = <String>[];
@@ -250,7 +360,10 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     if (uniqueIds.isNotEmpty) {
       final fetched = await videoRepo.fetchVideosByIds(uniqueIds);
       final byId = {for (final video in fetched) video.id: video};
-      videos = [for (final id in uniqueIds) if (byId[id] != null) byId[id]!];
+      videos = [
+        for (final id in uniqueIds)
+          if (byId[id] != null) byId[id]!,
+      ];
     }
 
     if (videos.isEmpty) {
@@ -261,11 +374,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
 
     if (!mounted) return;
     final index = videos.indexWhere((video) => video.id == routeVideoId);
-    await openVideoPlayer(
-      context: context,
-      listedVideos: videos,
-      videoIndex: index >= 0 ? index : 0,
-    );
+    await openVideoPlayer(context: context, listedVideos: videos, videoIndex: index >= 0 ? index : 0);
   }
 
   bool preloading = false;
@@ -306,7 +415,6 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       preloading = false;
     }
   }
-
 
   bool get _isNearBottom {
     if (!_scrollController.hasClients) return true;
@@ -371,7 +479,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
   }) {
     if (!mounted) return;
     if (isNewMessage) {
-      widget.onMessageUpdate(
+      widget.onMessageUpdateLocal(
         ChatMessage(
           id: getChatId(receiverId: widget.recipientId),
           text: text,
@@ -440,7 +548,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
 
     if (isNewMessage) {
       for (final m in newMessages) {
-        widget.onMessageUpdate(m);
+        widget.onMessageUpdateLocal(m);
       }
     }
 
@@ -477,7 +585,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
         return;
       }
       try {
-        final updated = await widget.onEditMessage(original, text);
+        final updated = await widget.onEditOwnMessage(original, text);
         if (!mounted) return;
         setState(() {
           _messages[index] = ChatMessage(
@@ -492,7 +600,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
           _editingMessageId = null;
           _textController.clear();
         });
-        widget.onMessageUpdate(updated);
+        widget.onMessageUpdateLocal(updated);
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to edit message: $e')));
@@ -542,7 +650,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
 
   Future<void> _deleteMessage(ChatMessage message) async {
     try {
-      await widget.onDeleteMessage(message);
+      await widget.onDeleteOwnMessage(message);
       if (!mounted) return;
       setState(() => _messages.removeWhere((m) => m.id == message.id));
       _disposeBubbleController(message.id);
@@ -772,7 +880,13 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
           padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8),
           child: Row(
             children: [
-              MessageAvatarWidget(name: widget.recipientName ?? '', imageUrl: widget.recipientAvatarUrl, isOnline: widget.isOnline, radius: 18, colorScheme: cs),
+              MessageAvatarWidget(
+                name: widget.recipientName ?? '',
+                imageUrl: widget.recipientAvatarUrl,
+                isOnline: widget.isOnline,
+                radius: 18,
+                colorScheme: cs,
+              ),
               const SizedBox(width: 10),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -923,7 +1037,12 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
                 children: [
                   Icon(Icons.edit_outlined, size: 16, color: cs.onSecondaryContainer),
                   const SizedBox(width: 8),
-                  Expanded(child: Text('Editing message', style: TextStyle(color: cs.onSecondaryContainer, fontWeight: FontWeight.w600))),
+                  Expanded(
+                    child: Text(
+                      'Editing message',
+                      style: TextStyle(color: cs.onSecondaryContainer, fontWeight: FontWeight.w600),
+                    ),
+                  ),
                   GestureDetector(
                     onTap: () {
                       setState(() {
@@ -1004,21 +1123,26 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       ),
     );
   }
-  
+
   @override
   void dispose() {
+    _messagesChannel?.unsubscribe();
+
     _scrollController.dispose();
     _typingDotController.dispose();
+
     for (var element in _bubbleControllers.values) {
       element.dispose();
     }
+
     _bubbleControllers.clear();
+
     _textController.dispose();
     _focusNode.dispose();
+
     super.dispose();
   }
 }
-
 
 class _TypingBubble extends StatelessWidget {
   final AnimationController controller;
@@ -1067,7 +1191,6 @@ class _TypingBubble extends StatelessWidget {
     );
   }
 }
-
 
 class _SendButton extends StatefulWidget {
   final VoidCallback onTap;
@@ -1162,7 +1285,11 @@ class _InputIconButton extends StatelessWidget {
     final size = context.uiSpace(36);
     return GestureDetector(
       onTap: onTap,
-      child: SizedBox(width: size, height: size, child: Icon(icon, color: color, size: context.uiSpace(24))),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Icon(icon, color: color, size: context.uiSpace(24)),
+      ),
     );
   }
 }

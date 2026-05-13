@@ -499,15 +499,15 @@ Widget buildMessagingScreen(Chat chat, void Function(ChatMessage) onMessageUpdat
       return MessagingScreen(
         key: currentOpenChatScreenKey,
         user: asyncSnapshot.data!,
-        onMessageUpdate: onMessageUpdate,
+        onMessageUpdateLocal: onMessageUpdate,
         canViewMessageHistory: () => chatRepository.canViewMessageHistory(),
         onLoadMessageVersions: (message) => chatRepository.getMessageVersions(message.id),
-        onEditMessage: (message, newText) async {
+        onEditOwnMessage: (message, newText) async {
           final updated = await chatRepository.editMessage(otherUserId: chat.partnerId, messageId: message.id, newText: newText);
           onMessageUpdate(updated);
           return updated;
         },
-        onDeleteMessage: (message) async {
+        onDeleteOwnMessage: (message) async {
           await chatRepository.deleteMessage(otherUserId: chat.partnerId, messageId: message.id);
         },
         onSend: (message) async {
@@ -521,7 +521,7 @@ Widget buildMessagingScreen(Chat chat, void Function(ChatMessage) onMessageUpdat
         loadMoreMessages: (int limit, DateTime? lastVisibleMessage) async {
           print("Loading more messages for chat ${chat.partnerId} with offset $lastVisibleMessage and limit $limit");
           return chatRepository.getMessagesWith(chat.partnerId, startOffset: lastVisibleMessage, limit: limit);
-        },
+        }, conversationId: chat.conversationId!,
       );
     },
   );
