@@ -1,4 +1,3 @@
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -268,6 +267,27 @@ class _RoutePreviewList extends StatelessWidget {
 
   const _RoutePreviewList({required this.messageText, required this.onRouteTap, required this.previewFutureFor});
 
+  static double _estimatedPreviewHeight(ChatRouteReference ref) {
+    final path = ref.uri.path;
+    if (path.startsWith('/feed/')) return 252;
+    if (path.startsWith('/themes')) return 190;
+    return 64;
+  }
+
+  static Widget _buildPreviewPlaceholder(BuildContext context, ChatRouteReference ref, {bool isError = false}) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      height: _estimatedPreviewHeight(ref),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(context.uiRadiusMd),
+        border: isError ? Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)) : null,
+      ),
+      alignment: Alignment.center,
+      child: isError ? Text('Preview unavailable', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)) : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final refs = ChatRoutePreviewResolver.extract(messageText);
@@ -286,15 +306,11 @@ class _RoutePreviewList extends StatelessWidget {
                 builder: (context, snapshot) {
                   final preview = snapshot.data;
                   if (snapshot.connectionState != ConnectionState.done) {
-                    return Container(
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
-                        borderRadius: BorderRadius.circular(context.uiRadiusMd),
-                      ),
-                    );
+                    return _buildPreviewPlaceholder(context, ref);
                   }
-                  if (preview == null) return const SizedBox.shrink();
+                  if (preview == null) {
+                    return _buildPreviewPlaceholder(context, ref, isError: true);
+                  }
                   return _RoutePreviewCard(preview: preview, onTap: () => onRouteTap(preview.route));
                 },
               ),
