@@ -686,7 +686,6 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
   Widget _buildMessageSkeleton(ColorScheme cs) {
     final radius = BorderRadius.circular(context.uiRadiusLg);
     return ListView(
-      controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       children: [
         Align(
@@ -1013,6 +1012,19 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
         ],
       ),
     );
+  }
+  
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _typingDotController.dispose();
+    for (var element in _bubbleControllers) {
+      element.dispose();
+    }
+    _bubbleControllers.clear();
+    _textController.dispose();
+    _focusNode.dispose();
+    super.dispose();
   }
 }
 
