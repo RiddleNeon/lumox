@@ -71,18 +71,17 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
   DateTime? currentMessageCursor;
 
   late final List<ChatMessage> _messages = [];
-  final List<AnimationController> _bubbleControllers = [];
+  final Map<String, AnimationController> _bubbleControllers = {};
 
   bool _isTyping = false;
   bool _showScrollDown = false;
   bool _partnerTyping = false;
   bool _initialViewportAnchored = false;
-  bool _keepInitialBottomLock = true;
   bool _historyLoadArmedByUserScroll = false;
   static const int _initialHistoryPageSize = 30;
   static const int _historyPageSize = 20;
   static const double _historyLoadTopThreshold = 80;
-  int _bottomLockSession = 0;
+  static const double _bottomScrollThreshold = 80;
   String? _editingMessageId;
   bool _canViewMessageHistory = false;
   final Map<String, Future<ChatRoutePreview?>> _previewFutureCache = {};
@@ -101,10 +100,6 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     _typingDotController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat();
     _loadHistoryPermission();
     _loadDictionaryEntries();
-
-    for (var _ in _messages) {
-      _createBubbleController(animate: true);
-    }
     _preloadMore(limit: _initialHistoryPageSize);
   }
 
@@ -288,10 +283,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     preloading = true;
 
     try {
-      print("preloading!");
       final wasEmpty = _messages.isEmpty;
-      final beforeOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
-      final beforeMaxScrollExtent = _scrollController.hasClients ? _scrollController.position.maxScrollExtent : 0.0;
       final loadedMessages = await widget.loadMoreMessages(limit, currentMessageCursor);
       if (!mounted) return;
 
@@ -306,21 +298,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       _addMessages(loadedMessages, appendToEnd: false, isNewMessage: false);
       currentMessageCursor = loadedMessages.first.timestamp;
       if (wasEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_scrollController.hasClients) {
-            _scrollController.jumpTo(_scrollController.position.maxScrollExtent); //fixme scrool controller attached to multiple scroll views
-          }
-          _initialViewportAnchored = true;
-          _startInitialBottomLock();
-        });
-      } else {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!_scrollController.hasClients) return;
-          final afterMaxScrollExtent = _scrollController.position.maxScrollExtent;
-          final delta = afterMaxScrollExtent - beforeMaxScrollExtent;
-          final target = (beforeOffset + delta).clamp(0.0, afterMaxScrollExtent);
-          _scrollController.jumpTo(target);
-        });
+        _initialViewportAnchored = true;
       }
     } catch (e) {
       debugPrint('preload messages failed: $e');
@@ -329,50 +307,54 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     }
   }
 
-  void _startInitialBottomLock() {
-    if (!_keepInitialBottomLock) return;
-    final session = ++_bottomLockSession;
-    int ticks = 0;
 
-    void tick() {
-      if (!mounted || !_keepInitialBottomLock || session != _bottomLockSession) return;
-      if (_scrollController.hasClients) {
-        final maxScroll = _scrollController.position.maxScrollExtent;
-        if ((_scrollController.offset - maxScroll).abs() > 1) {
-          _scrollController.jumpTo(maxScroll);
-        }
-      }
-      if (ticks++ >= 10) return;
-      Future.delayed(const Duration(milliseconds: 120), () {
-        if (!mounted || !_keepInitialBottomLock || session != _bottomLockSession) return;
-        WidgetsBinding.instance.addPostFrameCallback((_) => tick());
-      });
+  bool get _isNearBottom {
+    if (!_scrollController.hasClients) return true;
+    return _scrollController.offset <= _bottomScrollThreshold;
+  }
+
+  AnimationController _ensureBubbleController(String id, {bool animate = true}) {
+    final existing = _bubbleControllers[id];
+    if (existing != null) return existing;
+    final ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 350));
+    _bubbleControllers[id] = ctrl;
+    if (animate) {
+      ctrl.forward();
+    } else {
+      ctrl.value = 1.0;
     }
+    return ctrl;
+  }
 
-    tick();
+  AnimationController _createBubbleController(String id, {bool animate = true}) {
+    return _ensureBubbleController(id, animate: animate);
+  }
+
+  void _rekeyBubbleController(String oldId, String newId) {
+    if (oldId == newId) return;
+    final ctrl = _bubbleControllers.remove(oldId);
+    if (ctrl != null) {
+      _bubbleControllers[newId] = ctrl;
+    }
+  }
+
+  void _disposeBubbleController(String id) {
+    final ctrl = _bubbleControllers.remove(id);
+    ctrl?.dispose();
   }
 
   void onReceiveMessage(String text) {
-    setState(() {
-      _addMessage(text: text, isMe: false);
-      if (_partnerTyping) {
-        _partnerTyping = false;
-      }
-    });
+    final shouldAutoScroll = _isNearBottom;
+    if (_partnerTyping) {
+      setState(() => _partnerTyping = false);
+    }
+    _addMessage(text: text, isMe: false, autoScroll: shouldAutoScroll);
   }
 
   void setPartnerTyping(bool typing) {
     setState(() => _partnerTyping = typing);
-    if (typing) _scrollToBottom();
-  }
-
-  void _createBubbleController({bool animate = true}) {
-    final ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 350));
-    _bubbleControllers.add(ctrl);
-    if (animate) {
-      ctrl.forward();
-    } else {
-      ctrl.animateTo(1, duration: Duration.zero);
+    if (typing && _isNearBottom) {
+      _scrollToBottom(force: true);
     }
   }
 
@@ -383,6 +365,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     bool animated = true,
     bool appendToEnd = true,
     bool isNewMessage = true,
+    bool autoScroll = false,
     DateTime? createdAt,
     String? id,
   }) {
@@ -404,16 +387,21 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       timestamp: createdAt ?? DateTime.now(),
       status: isMe ? MessageStatus.sending : MessageStatus.delivered,
     );
+    _createBubbleController(msg.id, animate: animated);
     setState(() {
       if (appendToEnd) {
         _messages.add(msg);
       } else {
         _messages.insert(0, msg);
       }
+      if (!autoScroll && !_showScrollDown) {
+        _showScrollDown = true;
+      }
     });
     _sharedFeedVideoIds = null;
-    _createBubbleController(animate: animated);
-    _scrollToBottom();
+    if (autoScroll) {
+      _scrollToBottom(force: true);
+    }
 
     if (isMe) {
       if (sendingFuture == null) setState(() => msg.status = MessageStatus.sent);
@@ -456,6 +444,10 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       }
     }
 
+    for (final message in newMessages) {
+      _createBubbleController(message.id, animate: false);
+    }
+
     setState(() {
       if (appendToEnd) {
         _messages.addAll(newMessages);
@@ -464,16 +456,6 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       }
     });
     _sharedFeedVideoIds = null;
-
-    for (var i = 0; i < newMessages.length; i++) {
-      _createBubbleController(animate: false);
-      
-      print("added message ${newMessages[i].text} with timestamp ${newMessages[i].timestamp}");
-    }
-
-    if (appendToEnd) {
-      _scrollToBottom();
-    }
   }
 
   Future<void> _sendMessage() async {
@@ -526,13 +508,14 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     HapticFeedback.lightImpact();
 
     final tempId = DateTime.now().millisecondsSinceEpoch.toString();
-    _addMessage(text: text, isMe: true, isNewMessage: true, id: tempId);
-    
+    _addMessage(text: text, isMe: true, isNewMessage: true, id: tempId, autoScroll: true);
+
     try {
       final serverMessage = await widget.onSend(text);
       if (mounted) {
         final index = _messages.indexWhere((m) => m.id == tempId);
         if (index != -1) {
+          _rekeyBubbleController(tempId, serverMessage.id);
           setState(() {
             _messages[index] = ChatMessage(
               id: serverMessage.id,
@@ -562,6 +545,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       await widget.onDeleteMessage(message);
       if (!mounted) return;
       setState(() => _messages.removeWhere((m) => m.id == message.id));
+      _disposeBubbleController(message.id);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete message: $e')));
@@ -663,22 +647,31 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-    final atBottom = _scrollController.offset >= _scrollController.position.maxScrollExtent - 80;
+    final atBottom = _scrollController.offset <= _bottomScrollThreshold;
     if (!atBottom && !_showScrollDown) {
       setState(() => _showScrollDown = true);
     } else if (atBottom && _showScrollDown) {
       setState(() => _showScrollDown = false);
     }
-    final atTop = _scrollController.offset <= _historyLoadTopThreshold;
-    if (_initialViewportAnchored && _historyLoadArmedByUserScroll && atTop) {
+    final remaining = _scrollController.position.maxScrollExtent - _scrollController.offset;
+    if (_scrollController.offset > _bottomScrollThreshold) {
+      _historyLoadArmedByUserScroll = true;
+    }
+    if (_initialViewportAnchored && _historyLoadArmedByUserScroll && remaining <= _historyLoadTopThreshold) {
       _preloadMore(limit: _historyPageSize);
     }
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool force = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        _scrollController.animateTo(_scrollController.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+        if (!force && !_isNearBottom) return;
+        final target = _scrollController.position.minScrollExtent;
+        if (force) {
+          _scrollController.jumpTo(target);
+        } else {
+          _scrollController.animateTo(target, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+        }
       }
     });
   }
@@ -739,7 +732,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
             curve: Curves.easeOut,
             bottom: _showScrollDown ? 80 : -60,
             right: 16,
-            child: _ScrollDownButton(onTap: _scrollToBottom, colorScheme: cs),
+            child: _ScrollDownButton(onTap: () => _scrollToBottom(force: true), colorScheme: cs),
           ),
         ],
       ),
@@ -838,12 +831,8 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
               key: const ValueKey('chat_messages'),
               child: NotificationListener<UserScrollNotification>(
                 onNotification: (notification) {
-                  if (notification.direction != ScrollDirection.idle && _keepInitialBottomLock) {
-                    _keepInitialBottomLock = false;
-                    _bottomLockSession++;
-                  }
                   // Only load older pages after a deliberate upward user scroll.
-                  if (notification.direction == ScrollDirection.forward) {
+                  if (notification.direction != ScrollDirection.idle && _scrollController.hasClients && _scrollController.offset > _bottomScrollThreshold) {
                     _historyLoadArmedByUserScroll = true;
                   }
                   return false;
@@ -852,17 +841,19 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
                   onTap: () => _focusNode.unfocus(),
                   child: ListView.builder(
                     controller: _scrollController,
+                    reverse: true,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     itemCount: _messages.length,
                     itemBuilder: (ctx, i) {
-                      final msg = _messages[i];
-                      final prevMsg = i > 0 ? _messages[i - 1] : null;
-                      final nextMsg = i < _messages.length - 1 ? _messages[i + 1] : null;
+                      final index = _messages.length - 1 - i;
+                      final msg = _messages[index];
+                      final prevMsg = index > 0 ? _messages[index - 1] : null;
+                      final nextMsg = index < _messages.length - 1 ? _messages[index + 1] : null;
 
                       final showAvatar = !msg.isMe && (nextMsg == null || nextMsg.isMe || _isNewGroup(msg, nextMsg));
                       final showTimestamp = nextMsg == null || msg.timestamp.difference(nextMsg.timestamp).abs() > const Duration(minutes: 10);
 
-                      final ctrl = i < _bubbleControllers.length ? _bubbleControllers[i] : AnimationController(vsync: this, value: 1.0);
+                      final ctrl = _bubbleControllers[msg.id] ?? _ensureBubbleController(msg.id, animate: false);
 
                       return MessageBubble(
                         key: ValueKey(msg.id),
@@ -1018,7 +1009,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
   void dispose() {
     _scrollController.dispose();
     _typingDotController.dispose();
-    for (var element in _bubbleControllers) {
+    for (var element in _bubbleControllers.values) {
       element.dispose();
     }
     _bubbleControllers.clear();
