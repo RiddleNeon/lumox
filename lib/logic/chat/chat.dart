@@ -3,7 +3,7 @@ import '../local_storage/local_seen_service.dart';
 import '../users/user_model.dart';
 
 class Chat {
-  int? conversationId;
+  int conversationId;
   DateTime createdAt;
   String currentUserId;
   String partnerId;
@@ -14,7 +14,7 @@ class Chat {
   bool lastMessageByMe;
 
   Chat({
-    this.conversationId,
+    required this.conversationId,
     String? currentUserReplacementId,
     required this.partnerId,
     required this.partnerProfileImageUrl,
@@ -47,7 +47,7 @@ class Chat {
     bool lastMessageByMe = json['lastMessageByMe'] ?? true;
     DateTime createdAt = _parseDateTime(json['createdAt']);
     return Chat(
-      conversationId: json['conversationId'] as int?,
+      conversationId: json['conversationId'] as int,
       partnerId: partnerId,
       partnerProfileImageUrl: partnerProfileImageUrl,
       partnerName: partnerName,
@@ -76,7 +76,7 @@ class Chat {
     );
 
     return Chat(
-      conversationId: conversation['id'] as int?,
+      conversationId: conversation['id'] as int,
       currentUserReplacementId: currentUserId,
       partnerId: partner.id,
       partnerProfileImageUrl: partner.profileImageUrl,

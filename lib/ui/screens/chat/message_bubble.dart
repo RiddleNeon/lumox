@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import 'package:lumox/logic/chat/chat_message.dart';
 import 'package:lumox/logic/dictionary/dictionary_entry.dart';
 import 'package:lumox/ui/animations/slide_morph_transitions.dart';
@@ -188,13 +190,14 @@ class _BubbleBody extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _LinkedSelectableText(
+                  _MessageText(
                     text: message.text,
                     textColor: isMe ? cs.onPrimary : cs.onSecondary,
                     linkColor: isMe ? cs.onPrimary.withValues(alpha: 0.9) : cs.primary,
                     entriesByTitle: dictionaryEntriesByTitle,
                     onDictionaryTap: onDictionaryTap,
-                    onRouteTap: onRouteTap,
+                    onRouteTap: onRouteTap, 
+                    textColorCode: isMe ? cs.primary : cs.secondary,
                   ),
                   if (message.isEdited)
                     Padding(
@@ -258,6 +261,193 @@ class _LinkedSelectableText extends StatelessWidget {
       onRouteTap: onRouteTap,
     );
   }
+}
+
+class _MessageText extends StatelessWidget {
+  final String text;
+  final Color textColor;
+  final Color textColorCode;
+  final Color linkColor;
+  final Map<String, DictionaryEntry> entriesByTitle;
+  final void Function(DictionaryEntry entry) onDictionaryTap;
+  final void Function(String route) onRouteTap;
+
+  const _MessageText({
+    required this.text,
+    required this.textColor,
+    required this.linkColor,
+    required this.entriesByTitle,
+    required this.onDictionaryTap,
+    required this.onRouteTap, 
+    required this.textColorCode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_looksLikeMarkdown(text)) {
+      return _LinkedSelectableText(
+        text: text,
+        textColor: textColor,
+        linkColor: linkColor,
+        entriesByTitle: entriesByTitle,
+        onDictionaryTap: onDictionaryTap,
+        onRouteTap: onRouteTap,
+      );
+    }
+
+    final entriesByRoute = <String, DictionaryEntry>{
+      for (final entry in entriesByTitle.values) entry.route: entry,
+    };
+    final entriesBySubjectTitle = <String, DictionaryEntry>{};
+    final entriesBySubjectId = <String, DictionaryEntry>{};
+    for (final entry in entriesByTitle.values) {
+      final subject = entry.subject.trim().toLowerCase();
+      if (subject.isEmpty) continue;
+      entriesBySubjectId['$subject:${entry.questId}'] = entry;
+      final normalizedTitle = entry.normalizedTitle;
+      if (normalizedTitle.isNotEmpty) {
+        entriesBySubjectTitle['$subject:$normalizedTitle'] = entry;
+      }
+    }
+
+    final linkified = _linkifyRoutes(
+      linkifyDictionaryEntries(data: text, entriesByTitle: entriesByTitle),
+    );
+
+    final sheet = MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+      p: TextStyle(color: textColor, fontSize: 15, height: 1.4),
+      a: TextStyle(color: linkColor, decoration: TextDecoration.underline, decorationColor: linkColor),
+      code: TextStyle(color: textColorCode, fontSize: 11), 
+    );
+    
+
+    return MarkdownBody(
+      data: linkified,
+      styleSheet: sheet,
+      onTapLink: (label, href, title) {
+        final raw = href?.trim();
+        if (raw == null || raw.isEmpty) return;
+        if (ChatRoutePreviewResolver.isRoutableToken(raw)) {
+          onRouteTap(raw);
+          return;
+        }
+        final entry = _entryForSubjectRef(raw, entriesBySubjectTitle, entriesBySubjectId) ?? entriesByRoute[raw];
+        if (entry != null) {
+          onDictionaryTap(entry);
+          return;
+        }
+        final resolved = raw.startsWith('/') ? Uri.base.resolve(raw).toString() : raw;
+        launchUrlString(resolved);
+      },
+    );
+  }
+}
+
+bool _looksLikeMarkdown(String text) {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) return false;
+  final patterns = <RegExp>[
+    RegExp(r'^#{1,6}\s', multiLine: true),
+    RegExp(r'(\*\*|__)[^\n]+?(\*\*|__)'),
+    RegExp(r'(?<!\*)\*[^\n]+?\*(?!\*)'),
+    RegExp(r'(?<!_)_[^\n]+?_(?!_)'),
+    RegExp(r'`[^`\n]+`'),
+    RegExp(r'```', multiLine: true),
+    RegExp(r'^\s*[-*+]\s+\S', multiLine: true),
+    RegExp(r'^\s*\d+\.\s+\S', multiLine: true),
+    RegExp(r'\[[^\]]+\]\([^\)]+\)'),
+    RegExp(r'^>\s', multiLine: true),
+  ];
+  return patterns.any((pattern) => pattern.hasMatch(text));
+}
+
+String _linkifyRoutes(String data) {
+  if (data.trim().isEmpty) return data;
+  final routeRegex = RegExp(r'(?<!\S)(/\S+)');
+  final skipRanges = _collectMarkdownSkipRanges(data);
+  final buffer = StringBuffer();
+  var cursor = 0;
+
+  for (final match in routeRegex.allMatches(data)) {
+    final start = match.start;
+    final end = match.end;
+    if (_isInSkipRange(start, end, skipRanges)) continue;
+    if (start < cursor) continue;
+
+    final raw = match.group(1);
+    if (raw == null || !ChatRoutePreviewResolver.isRoutableToken(raw)) continue;
+
+    buffer.write(data.substring(cursor, start));
+    buffer.write('[$raw]($raw)');
+    cursor = end;
+  }
+
+  if (cursor < data.length) {
+    buffer.write(data.substring(cursor));
+  }
+
+  return buffer.toString();
+}
+
+DictionaryEntry? _entryForSubjectRef(
+  String href,
+  Map<String, DictionaryEntry> entriesBySubjectTitle,
+  Map<String, DictionaryEntry> entriesBySubjectId,
+) {
+  final trimmed = href.trim();
+  if (trimmed.isEmpty) return null;
+  if (trimmed.startsWith('/') || trimmed.contains('://')) return null;
+  final separatorIndex = trimmed.indexOf(':');
+  if (separatorIndex <= 0 || separatorIndex >= trimmed.length - 1) return null;
+  final subject = Uri.decodeComponent(trimmed.substring(0, separatorIndex)).trim().toLowerCase();
+  final rawKey = Uri.decodeComponent(trimmed.substring(separatorIndex + 1)).trim();
+  if (subject.isEmpty || rawKey.isEmpty) return null;
+
+  final numericId = int.tryParse(rawKey);
+  if (numericId != null) {
+    return entriesBySubjectId['$subject:$numericId'];
+  }
+
+  return entriesBySubjectTitle['$subject:${rawKey.toLowerCase()}'];
+}
+
+List<TextRange> _collectMarkdownSkipRanges(String data) {
+  final ranges = <TextRange>[];
+  final patterns = <RegExp>[
+    RegExp(r'```[\s\S]*?```', multiLine: true),
+    RegExp(r'`[^`\n]+`'),
+    RegExp(r'!\[[\s\S]*?\]\([\s\S]*?\)'),
+    RegExp(r'\[[\s\S]*?\]\([\s\S]*?\)'),
+  ];
+
+  for (final pattern in patterns) {
+    for (final match in pattern.allMatches(data)) {
+      ranges.add(TextRange(start: match.start, end: match.end));
+    }
+  }
+
+  if (ranges.isEmpty) return ranges;
+  ranges.sort((a, b) => a.start.compareTo(b.start));
+
+  final merged = <TextRange>[];
+  var current = ranges.first;
+  for (final range in ranges.skip(1)) {
+    if (range.start <= current.end) {
+      current = TextRange(start: current.start, end: range.end > current.end ? range.end : current.end);
+    } else {
+      merged.add(current);
+      current = range;
+    }
+  }
+  merged.add(current);
+  return merged;
+}
+
+bool _isInSkipRange(int start, int end, List<TextRange> ranges) {
+  for (final range in ranges) {
+    if (range.start < end && start < range.end) return true;
+  }
+  return false;
 }
 
 class _RoutePreviewList extends StatelessWidget {

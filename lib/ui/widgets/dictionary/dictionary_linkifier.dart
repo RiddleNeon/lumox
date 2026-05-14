@@ -266,6 +266,21 @@ String linkifyDictionaryEntriesForSubject({
   return _replaceMatchesWithSubjectRef(data, pattern, filtered, skipRanges);
 }
 
+String linkifyDictionaryEntries({
+  required String data,
+  required Map<String, DictionaryEntry> entriesByTitle,
+}) {
+  if (data.trim().isEmpty || entriesByTitle.isEmpty) return data;
+
+  final pattern = RegExp(
+    _buildDictionaryPattern(entriesByTitle.keys.toList()),
+    multiLine: true,
+    caseSensitive: false,
+  );
+  final skipRanges = _collectMarkdownSkipRanges(data);
+  return _replaceMatchesWithSubjectRef(data, pattern, entriesByTitle, skipRanges);
+}
+
 String _replaceMatchesWithSubjectRef(
   String data,
   RegExp pattern,

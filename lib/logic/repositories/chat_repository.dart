@@ -349,6 +349,10 @@ class ChatRepository {
 
     return conversationId;
   }
+  
+  Future<int> createConversationWith(String otherUserId, {required String partnerName, required String partnerProfileImageUrl}) async {
+    return await _getOrCreateDirectConversation(otherUserId, partnerName: partnerName, partnerProfileImageUrl: partnerProfileImageUrl);
+  }
 
   void _invalidateChatPagesForUser(String userId) {
     final prefix = '$userId:';

@@ -95,6 +95,7 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
       try {
         final partner = await userRepository.getUser(partnerId);
         if (!mounted) return;
+        int conversationId = await chatRepository.createConversationWith(partner.id, partnerName: partner.displayName, partnerProfileImageUrl: partner.profileImageUrl);
         chat = Chat(
           partnerId: partner.id,
           partnerProfileImageUrl: partner.profileImageUrl,
@@ -102,7 +103,8 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
           lastMessage: '',
           lastMessageAt: null,
           lastMessageByMe: true,
-          createdAt: DateTime.now(),
+          createdAt: DateTime.now(), 
+          conversationId: conversationId,
         );
         chats.insert(0, chat);
         setState(() {});
@@ -541,7 +543,7 @@ Widget buildMessagingScreen(Chat chat, void Function(ChatMessage) onMessageUpdat
         loadMoreMessages: (int limit, DateTime? lastVisibleMessage) async {
           print("Loading more messages for chat ${chat.partnerId} with offset $lastVisibleMessage and limit $limit");
           return chatRepository.getMessagesWith(chat.partnerId, startOffset: lastVisibleMessage, limit: limit);
-        }, conversationId: chat.conversationId!,
+        }, conversationId: chat.conversationId,
       );
     },
   );
