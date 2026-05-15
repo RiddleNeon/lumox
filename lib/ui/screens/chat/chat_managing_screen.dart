@@ -76,14 +76,13 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
     }
   }
 
-  Future<void> _tryOpenInitialChat() async {
+  Future<void> _tryOpenInitialChat([Chat? chat]) async {
     final partnerId = widget.initialChatPartnerId;
     if (_handledInitialChat || partnerId == null || partnerId.isEmpty) return;
     if (_lastHandledDeepLinkPartnerId == partnerId) return;
     _handledInitialChat = true;
     _lastHandledDeepLinkPartnerId = partnerId;
-
-    Chat? chat;
+    
     for (final item in chats) {
       if (item.partnerId == partnerId) {
         chat = item;
@@ -95,7 +94,11 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
       try {
         final partner = await userRepository.getUser(partnerId);
         if (!mounted) return;
-        int conversationId = await chatRepository.createConversationWith(partner.id, partnerName: partner.displayName, partnerProfileImageUrl: partner.profileImageUrl);
+        final conversation = await chatRepository.createConversationWith(partner.id, partnerName: partner.displayName, partnerProfileImageUrl: partner.profileImageUrl);
+        final isProUser = await supabaseClient.rpc('is_pro', params: {'p_user_id': currentUser.id}) as bool;
+        final partnerIsAi = isProUser && await supabaseClient.from('ai_bots').select().eq('user_id', partnerId).maybeSingle() != null;
+        print("Created conversation $conversation (existed: $conversation with $partnerId (partnerIsAi: $partnerIsAi)");
+        
         chat = Chat(
           partnerId: partner.id,
           partnerProfileImageUrl: partner.profileImageUrl,
@@ -103,8 +106,10 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
           lastMessage: '',
           lastMessageAt: null,
           lastMessageByMe: true,
-          createdAt: DateTime.now(), 
-          conversationId: conversationId,
+          createdAt: DateTime.now(),
+          conversationId: conversation,
+          partnerIsAi: partnerIsAi,
+          conversationType: partnerIsAi ? 'direct-ai' : 'direct',
         );
         chats.insert(0, chat);
         setState(() {});
@@ -117,6 +122,7 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      print("INITIAL!!!");
       _openChat(chat!, (message) => onMessageUpdate(chat!, message));
     });
   }
@@ -165,7 +171,7 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
     
     localSeenService.sendMessageLocal(chat, message);
 
-    if(message.isMe) {
+    if(message.isMe && chat.isAiConversation) {
       await supabaseClient.functions.invoke(
           'ai-bots',
           body: {
@@ -250,6 +256,8 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
     final theme = Theme.of(context);
     final timeString = formatTime(chat.lastMessageAt ?? chat.createdAt);
     final formattedMessage = _formatLastMessage(chat);
+    
+    print("FROM HIGHLIGHT CARD: Chat with partnerId ${chat.partnerName}, is ai conversation: ${chat.isAiConversation}, is bot: ${chat.partnerIsAi}");
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
@@ -313,7 +321,7 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
             ),
           ),
         ),
-      ),
+      )
     );
   }
 
@@ -403,6 +411,8 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
     final timeString = formatTime(lastMessageTime);
 
     final formattedMessage = _formatLastMessage(chat);
+    
+    print("FROM ENTRY: Chat with partnerId ${chat.partnerName}, is ai conversation: ${chat.isAiConversation}, is bot: ${chat.partnerIsAi}");
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
@@ -517,6 +527,8 @@ Widget buildMessagingScreen(Chat chat, void Function(ChatMessage) onMessageUpdat
       if (!asyncSnapshot.hasData) {
         return const _MessagingScreenSkeleton();
       }
+      
+      print("Opening chat screen for chat with partnerId ${chat.partnerName}. Chat is AI conversation: ${chat.isAiConversation}, partnerIsAi: ${chat.partnerIsAi}");
 
       return MessagingScreen(
         key: currentOpenChatScreenKey,
@@ -524,6 +536,7 @@ Widget buildMessagingScreen(Chat chat, void Function(ChatMessage) onMessageUpdat
         onMessageUpdateLocal: onMessageUpdate,
         canViewMessageHistory: () => chatRepository.canViewMessageHistory(),
         onLoadMessageVersions: (message) => chatRepository.getMessageVersions(message.id),
+        fakeTyping: chat.isAiConversation,
         onEditOwnMessage: (message, newText) async {
           final updated = await chatRepository.editMessage(otherUserId: chat.partnerId, messageId: message.id, newText: newText);
           onMessageUpdate(updated);
@@ -541,7 +554,6 @@ Widget buildMessagingScreen(Chat chat, void Function(ChatMessage) onMessageUpdat
           return serverMsg;
         },
         loadMoreMessages: (int limit, DateTime? lastVisibleMessage) async {
-          print("Loading more messages for chat ${chat.partnerId} with offset $lastVisibleMessage and limit $limit");
           return chatRepository.getMessagesWith(chat.partnerId, startOffset: lastVisibleMessage, limit: limit);
         }, conversationId: chat.conversationId,
       );

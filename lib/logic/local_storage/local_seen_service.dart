@@ -52,12 +52,6 @@ class LocalSeenService {
     }
 
     await syncWithSupabase();
-    print(
-      "initialized LocalSeenService for user $userId, "
-      "last sync likes: ${_settings[_lastSyncLikesKey]}, "
-      "last sync dislikes: ${_settings[_lastSyncDislikesKey]}"
-      "last sync chats: ${_settings[_lastSyncConversationKey]}",
-    );
   }
 
   Future<void> dispose() async {
@@ -311,7 +305,7 @@ class LocalSeenService {
 
     final conversations = await supabaseClient
         .from('conversations')
-        .select('id, created_at, updated_at, last_message')
+        .select('id, created_at, updated_at, last_message, type')
         .inFilter('id', conversationIds)
         .gt('updated_at', lastSync.toIso8601String())
         .order('updated_at', ascending: false);
@@ -367,6 +361,8 @@ class LocalSeenService {
           'partnerName': partnerProfile['display_name'] ?? partnerProfile['username'] ?? partnerId,
           'partnerProfileImageUrl': partnerProfile['avatar_url'] ?? '',
           'lastMessageByMe': lastMessageByMe,
+          'partnerIsAi': conversation['type'] == 'direct-ai',
+          'conversationType': conversation['type'] ?? 'direct',
         };
 
         final cursor = _chatCursors[_conversationId(partnerId)];
@@ -382,8 +378,6 @@ class LocalSeenService {
 
     final latestConversation = DateTime.parse(conversations.first['updated_at'] as String).toLocal();
     _settings[_lastSyncConversationKey] = latestConversation;
-    
-    print('Synced conversations, updated local cache with ${toWrite.length} conversations. Latest conversation update at $latestConversation');
   }
 
   // ---------------------------------------------------------------------------

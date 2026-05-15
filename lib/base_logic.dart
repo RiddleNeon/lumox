@@ -77,8 +77,6 @@ Future<void> syncUserStreak() async {
   _hasIncreasedStreakToday = streakInfo.isUpdatedToday;
   _bestUserStreak = streakInfo.bestStreak;
   
-  print("User streak info synced. Current streak: $currentUserStreak, Best streak: $bestUserStreak, Updated today: $_hasIncreasedStreakToday");
-  
 }
 
 Future<bool> requestStreakUpdate([bool force = false]) async {

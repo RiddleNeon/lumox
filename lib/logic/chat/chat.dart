@@ -12,6 +12,8 @@ class Chat {
   DateTime? lastMessageAt;
   String lastMessage;
   bool lastMessageByMe;
+  bool partnerIsAi;
+  String conversationType;
 
   Chat({
     required this.conversationId,
@@ -23,7 +25,11 @@ class Chat {
     required this.lastMessageAt,
     required this.lastMessageByMe,
     required this.createdAt,
+    required this.partnerIsAi,
+    this.conversationType = 'direct',
   }) : currentUserId = currentUserReplacementId ?? currentUser.id;
+
+  bool get isAiConversation => conversationType == 'direct-ai';
 
   Map<String, dynamic> toJson() => {
     'conversationId': conversationId,
@@ -35,6 +41,8 @@ class Chat {
     'lastMessage': lastMessage,
     'lastMessageByMe': lastMessageByMe,
     'createdAt': createdAt,
+    'partnerIsAi': partnerIsAi,
+    'conversationType': conversationType,
   };
 
   factory Chat.fromJson(Map<dynamic, dynamic> json, {String? customPartnerId}) {
@@ -56,35 +64,8 @@ class Chat {
       lastMessageAt: lastMessageAt,
       lastMessageByMe: lastMessageByMe,
       createdAt: createdAt,
-    );
-  }
-
-  factory Chat.fromSupabase({
-    required Map<String, dynamic> conversation,
-    required UserProfile partner,
-    required String currentUserId,
-    String? lastMessage,
-    bool lastMessageByMe = false,
-  }) {
-    final createdAtValue = conversation['created_at'];
-    final updatedAtValue = conversation['updated_at'];
-    final createdAt = _parseDateTime(createdAtValue);
-    final updatedAt = _parseDateTime(updatedAtValue);
-
-    print(
-      "Creating chat from supabase data: conversationId=${conversation['id']}, partnerId=${partner.id}, createdAt=$createdAt, updatedAt=$updatedAt, lastMessage=$lastMessage, lastMessageByMe=$lastMessageByMe",
-    );
-
-    return Chat(
-      conversationId: conversation['id'] as int,
-      currentUserReplacementId: currentUserId,
-      partnerId: partner.id,
-      partnerProfileImageUrl: partner.profileImageUrl,
-      partnerName: partner.username,
-      lastMessage: lastMessage ?? '',
-      lastMessageAt: updatedAt,
-      lastMessageByMe: lastMessageByMe,
-      createdAt: createdAt,
+      partnerIsAi: json['partnerIsAi'] ?? (json['conversationType'] != null && json['conversationType'] == 'direct-ai') ?? false,
+      conversationType: json['conversationType'] ?? 'direct',
     );
   }
 

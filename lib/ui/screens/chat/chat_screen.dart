@@ -46,6 +46,8 @@ class MessagingScreen extends StatefulWidget {
   final bool isOnline;
   
   final int conversationId;
+  
+  final bool fakeTyping;
 
   const MessagingScreen({
     super.key,
@@ -58,7 +60,8 @@ class MessagingScreen extends StatefulWidget {
     required this.loadMoreMessages,
     required this.onMessageUpdateLocal,
     required this.user, 
-    required this.conversationId,
+    required this.conversationId, 
+    this.fakeTyping = false,
   });
 
   @override
@@ -130,9 +133,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
         value: widget.conversationId,
       ),
       callback: (payload) {
-        try {
-          print("RECEIVED REALTIME MESSAGE INSERT: ${payload.newRecord}");
-          
+        try {          
           final data = payload.newRecord;
 
           final messageId = data['id'].toString();
@@ -546,11 +547,22 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     }
 
     if (isMe) {
-      if (sendingFuture == null) setState(() => msg.status = MessageStatus.sent);
+      if (sendingFuture == null) {
+        
+        if(widget.fakeTyping) {
+          startFakeTyping(Duration(seconds: Random().nextInt(6)));
+        }
+        
+        setState(() => msg.status = MessageStatus.sent);
+      }
       sendingFuture
           ?.then((val) {
             if (mounted) {
               setState(() => msg.status = MessageStatus.delivered);
+            }
+            
+            if(widget.fakeTyping) {
+              startFakeTyping(Duration(seconds: Random().nextInt(3) + 1));
             }
           })
           .catchError((e) {
@@ -560,6 +572,17 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
             debugPrint('send message failed: $e');
           });
     }
+  }
+  
+  Future<void> startFakeTyping([Duration? offset]) async {
+    if(offset != null) {
+      await Future.delayed(offset);
+    }
+    if (!mounted) return;
+    
+    print("STARTING FAKE TYPING");
+    
+    setState(() => _partnerTyping = true);
   }
 
   void _addMessages(List<ChatMessage> messages, {bool appendToEnd = true, bool isNewMessage = true}) {

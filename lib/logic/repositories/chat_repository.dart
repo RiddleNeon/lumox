@@ -307,7 +307,12 @@ class ChatRepository {
       return null;
     }
 
-    final directConversations = await supabaseClient.from('conversations').select('id').eq('type', 'direct').inFilter('id', sharedConversationIds).limit(1);
+    final directConversations = await supabaseClient
+        .from('conversations')
+        .select('id')
+        .inFilter('type', ['direct', 'direct-ai'])
+        .inFilter('id', sharedConversationIds)
+        .limit(1);
 
     final directConversationList = (directConversations as List).map<Map<String, dynamic>>((row) => Map<String, dynamic>.from(row)).toList();
     if (directConversationList.isEmpty) {
@@ -328,7 +333,17 @@ class ChatRepository {
 
     print("No existing conversation found with $receiverId, creating a new one. currentUser: ${currentUser.id}");
 
-    final conversationId = await supabaseClient.rpc('create_conversation', params: {'p_receiver_id': receiverId, 'p_title': null, 'p_type': 'direct'}) as int;
+    final isProUser = await supabaseClient.rpc('is_pro', params: {'p_user_id': currentUser.id}) as bool;
+    print("Current user is ${isProUser ? 'a Pro user' : 'not a Pro user'}");
+    final partnerIsAi = isProUser && await supabaseClient.from('ai_bots').select().eq('user_id', receiverId).maybeSingle() != null;
+    print("Partner with ID $receiverId is ${partnerIsAi ? 'an AI bot' : 'a regular user'}");
+    final conversationType = partnerIsAi ? 'direct-ai' : 'direct';
+
+    final conversationId = await supabaseClient.rpc(
+      'create_conversation',
+      params: {'p_receiver_id': receiverId, 'p_title': null, 'p_type': conversationType},
+    ) as int;
+    print("Created conversation $conversationId with $receiverId (partnerIsAi: $partnerIsAi)");
 
     final now = DateTime.now();
 
@@ -342,6 +357,8 @@ class ChatRepository {
         lastMessageAt: now,
         lastMessageByMe: false,
         createdAt: now,
+        partnerIsAi: partnerIsAi,
+        conversationType: conversationType,
       ),
     ]);
     _conversationIdCache[receiverId] = _CachedConversationId(conversationId);
