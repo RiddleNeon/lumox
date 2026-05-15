@@ -143,11 +143,13 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
           );
 
           if (alreadyExists) return;
+          
+          final isMe = data['sender_id'] == currentUser.id;
 
           final message = ChatMessage(
             id: messageId,
             text: data['content'] ?? '',
-            isMe: data['sender_id'] == currentUser.id,
+            isMe: isMe,
             timestamp: DateTime.parse(data['created_at']),
             status: MessageStatus.delivered,
           );
@@ -160,6 +162,9 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
 
           setState(() {
             _messages.add(message);
+            if(!isMe && _partnerTyping && widget.fakeTyping){
+              _partnerTyping = false;
+            }
           });
 
           widget.onMessageUpdateLocal(message);
@@ -1123,7 +1128,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       padding: const EdgeInsets.only(left: 56, bottom: 4, right: 80),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: _TypingBubble(controller: _typingDotController, colorScheme: cs),
+        child: TypingBubble(controller: _typingDotController, colorScheme: cs),
       ),
     );
   }
@@ -1263,54 +1268,103 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
   }
 }
 
-class _TypingBubble extends StatelessWidget {
+class TypingBubble extends StatelessWidget {
   final AnimationController controller;
   final ColorScheme colorScheme;
 
-  const _TypingBubble({required this.controller, required this.colorScheme});
+  const TypingBubble({
+    super.key,
+    required this.controller,
+    required this.colorScheme,
+  });
 
   @override
   Widget build(BuildContext context) {
     final cs = colorScheme;
     final radiusLg = context.uiRadiusLg;
     final radiusSm = context.uiRadiusSm;
-    return Container(
-      margin: EdgeInsets.only(bottom: context.uiSpace(4)),
-      padding: EdgeInsets.symmetric(horizontal: context.uiSpace(16), vertical: context.uiSpace(12)),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(radiusSm),
-          topRight: Radius.circular(radiusLg),
-          bottomLeft: Radius.circular(radiusLg),
-          bottomRight: Radius.circular(radiusLg),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: List.generate(3, (i) {
-          return AnimatedBuilder(
-            animation: controller,
-            builder: (_, _) {
-              final phase = (controller.value - i * 0.15).clamp(0.0, 1.0);
-              final offset = sin(phase * 2 * pi) * 3.0;
-              return Transform.translate(
-                offset: Offset(0, -offset.abs()),
-                child: Container(
-                  width: context.uiSpace(7),
-                  height: context.uiSpace(7),
-                  margin: EdgeInsets.only(right: i < 2 ? context.uiSpace(4) : 0),
-                  decoration: BoxDecoration(color: cs.onSurfaceVariant.withValues(alpha: 0.5), shape: BoxShape.circle),
-                ),
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        return Container(
+          margin: EdgeInsets.only(bottom: context.uiSpace(4)),
+          padding: EdgeInsets.symmetric(horizontal: context.uiSpace(16), vertical: context.uiSpace(12)),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHigh,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(radiusSm),
+              topRight: Radius.circular(radiusLg),
+              bottomLeft: Radius.circular(radiusLg),
+              bottomRight: Radius.circular(radiusLg),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(3, (i) {
+              return _TypingDot(
+                index: i,
+                controllerValue: controller.value,
+                color: cs.onSurfaceVariant,
               );
-            },
-          );
-        }),
-      ),
+            }),
+          ),
+        );
+      }
     );
   }
 }
 
+
+
+class _TypingDot extends StatelessWidget {
+  final int index;
+  final double controllerValue;
+  final Color color;
+
+  const _TypingDot({
+    required this.index,
+    required this.controllerValue,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final delay = index * 0.18;
+
+    final t = ((controllerValue - delay) % 1.0).clamp(0.0, 1.0);
+
+    final curve = Curves.easeInOutCubicEmphasized.transform(
+      sin(t * pi),
+    );
+
+    final translateY = -curve * 5;
+    final scale = 0.85 + (curve * 0.35);
+    final opacity = 0.35 + (curve * 0.65);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        right: index < 2 ? context.uiSpace(4) : 0,
+      ),
+      child: Transform.translate(
+        offset: Offset(0, translateY + 3.5),
+        child: Transform.scale(
+          scale: scale,
+          child: Opacity(
+            opacity: opacity,
+            child: Container(
+              width: context.uiSpace(7),
+              height: context.uiSpace(7),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 class _SendButton extends StatefulWidget {
   final VoidCallback onTap;
   final ColorScheme colorScheme;
