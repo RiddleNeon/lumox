@@ -558,7 +558,7 @@ class _RoutePreviewCard extends StatelessWidget {
       );
     }
 
-    if (preview.type == ChatRoutePreviewType.feed && preview.thumbnailUrl != null) {
+    if (preview.type == ChatRoutePreviewType.feed && preview.thumbnailUrl?.isNotEmpty == true) {
       return InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(context.uiRadiusMd),

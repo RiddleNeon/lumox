@@ -13,7 +13,6 @@ import '../../base_ui.dart';
 import '../../logic/comments/comment.dart';
 import '../../logic/repositories/video_repository.dart';
 import '../../logic/video/video.dart';
-import 'auth_screen.dart';
 
 class _CommentVM {
   final Comment comment;

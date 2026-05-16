@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:lumox/logic/chat/chat.dart';
 import 'package:lumox/logic/chat/chat_message.dart';

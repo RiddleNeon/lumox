@@ -112,6 +112,7 @@ The search results are calculated using an advanced search algorithm that uses:
 to determine the relevance of the search results.
 
 //todo update screenshot
+
 <img width="653" height="1047" alt="image" src="https://github.com/user-attachments/assets/60d02457-a12f-465d-91a6-39778a8a4f97" />
 
 
@@ -133,6 +134,7 @@ Technically, it also supports group chats, but this is not implemented in the fr
 Users can chat with AI-Chatbots that are trained on specific topics. The answers are generated in the backend and only accessable to pro users. You can request access to the AI-Chatbots in the settings in the advanced tab.
 
 //todo screenshot
+
 ---
 
 ## Profile Customisation
@@ -265,14 +267,30 @@ The result is a well-organized and visually appealing quest map that clearly sho
 
 ---
 
+## Dictionary
+Since you often stumble upon new terms while learning, I implemented a dictionary feature that allows users to look up definitions and explanations for various terms.
+Basically these dictionary entries are just the quests and their descriptions as definitions. Additionally, since every term has a corresponding quest, you can 
+go to the quest tree and view the topic with its context and prerequisites, which is often more helpful than a simple definition.
+
+### Dictionary Screen
+The dictionary screen allows users to see all the terms and definitions in a list. They can also search for specific terms and filter them by category.
+//todo screenshot
+
+### Automatic Linking of Terms
+Whenever a term is mentioned in a video description, comment, or chat conversation, it is automatically linked to its corresponding dictionary entry. This allows users to quickly access the definition and related information about the term without having to leave the current context.
+So if you see a term you don't understand and its underlined, you can just click on it and view the definition or go to the quest tree.
+
+//todo screenshot
+
+
+---
+
 ## User Moderation Tools
 
-Users can report other users if they find them inappropriate.
+Users can report other users if they find them inappropriate. Additionally if a user uses inappropriate language in their videos, comments, or chat messages, they can be automatically flagged by the system and receive a warning. If a user receives too many reports the user is banned.
+The banned user can Appeal the ban and moderators then review the case and decide whether to lift the ban. Since i currently don't have a moderation team, the appeals are automatically accepted and the user is unbanned after a few seconds.
 
-If a user receives too many reports:
-- The user is banned
-
-The banned user can Appeal the ban and moderators then review the case and decide whether to lift the ban.
+//todo screenshot
 
 ---
 

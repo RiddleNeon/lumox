@@ -18,7 +18,7 @@ void startApp() async {
       } else {
         print('Authenticated session found without profile. Waiting for onboarding completion.');
       }
-    } on BanAuthException catch (e) {
+    } on BanAuthException {
       userBannedHint = true;
       lastUserProfileId = authUser.id;
       await auth.signOut();
