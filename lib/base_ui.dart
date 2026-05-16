@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lumox/logic/users/user_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lumox/ui/router/router.dart';
 import 'package:lumox/ui/theme/app_theme.dart';
@@ -18,7 +19,8 @@ void startApp() async {
         print('Authenticated session found without profile. Waiting for onboarding completion.');
       }
     } on BanAuthException catch (e) {
-      print("Banned user session: $e");
+      userBannedHint = true;
+      lastUserProfileId = authUser.id;
       await auth.signOut();
     } on AuthException catch (e) {
       print("Error fetching user profile: $e");
@@ -46,3 +48,8 @@ void startApp() async {
 Brightness get currentSystemBrightness => WidgetsBinding.instance.platformDispatcher.platformBrightness;
 
 final ValueNotifier<(ThemeData, String)> appThemeNotifier = ValueNotifier((currentSystemBrightness == Brightness.dark ? AppTheme.dark : AppTheme.light, currentSystemBrightness == Brightness.dark ? "default-dark" : "default"));
+
+
+bool userBannedHint = false;
+UserProfile? lastUserProfile; 
+String? lastUserProfileId; 

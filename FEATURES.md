@@ -1,4 +1,4 @@
-## Implemented Features
+# Implemented Features
 
 ### Core Features
 - [x] User Authentication
@@ -10,6 +10,7 @@
 - [x] Followers and Following
 - [x] Advanced Search Functionality
 - [x] Direct Messaging
+- [x] AI-Chatbots
 - [x] User moderation tools
 
 ### Video & Content
@@ -18,31 +19,36 @@
 - [x] YouTube video player integration
 - [x] Basic recommendation algorithm
 
-### Customization & Themes
-- [x] Profile Customisation
-- [x] Themes
-- [x] Theme generation system
-- [x] Community theme marketplace
+
 
 ### Quest System
 - [x] Quest screen for connecting categories
 - [x] Quest managing system
 - [x] Quest version control system
 - [x] Dynamic quest colors
+- [x] Auto-Layouting of quests
+
+### Dictionary
+- [x] Dictionary screen for managing terms and definitions
+- [x] automatic linking of terms to their corresponding dictionary entries
+- [x] Quick access to dictionary entries in chat conversations
+
+
 
 ### Engagement
+- [x] Streaks
 - [x] Daily goals
+
+
+### Customization & Themes
+- [x] Profile Customisation
+- [x] Themes
+- [x] Theme generation system
+- [x] Community theme marketplace
 
 ---
 
 ## Videos
-
-Users can upload videos to the platform. They can add a title, tags, description, and a thumbnail to their videos.
-
-
----
-
-## Video Feed
 
 I've implemented two different video feed and player types: a general video feed and a YouTube video feed.
 
@@ -62,8 +68,7 @@ For example:
 - You can't preload YouTube videos
 - Videos must load when scrolled into view
 
-<img width="556" height="1000" alt="image" src="https://github.com/user-attachments/assets/c914b7ec-b679-47ca-83ff-0104f0e7b883" />
-
+//todo screenshot
 
 ---
 
@@ -106,6 +111,7 @@ The search results are calculated using an advanced search algorithm that uses:
 
 to determine the relevance of the search results.
 
+//todo update screenshot
 <img width="653" height="1047" alt="image" src="https://github.com/user-attachments/assets/60d02457-a12f-465d-91a6-39778a8a4f97" />
 
 
@@ -123,7 +129,10 @@ Technically, it also supports group chats, but this is not implemented in the fr
 
 <img width="657" height="1060" alt="image" src="https://github.com/user-attachments/assets/805af753-3ad8-4505-a727-d39d4f6a1040" />
 
+## AI-Chatbots
+Users can chat with AI-Chatbots that are trained on specific topics. The answers are generated in the backend and only accessable to pro users. You can request access to the AI-Chatbots in the settings in the advanced tab.
 
+//todo screenshot
 ---
 
 ## Profile Customisation
@@ -201,6 +210,8 @@ Users can:
 - Delete quests
 - Connect quests via prerequisites
 
+//todo screenshot
+
 ---
 
 ### Quest Version Control System
@@ -244,6 +255,16 @@ This helps to:
 
 ---
 
+### Auto-Layouting of Quests
+In debug mode you can auto-layout the quests. This means that the quests will be automatically arranged based on their connections.
+This is especially useful for large quest maps, where manual arrangement would be difficult. It consists of a force-directed graph algorithm that calculates the optimal position for each quest based on its connections and the positions of other quests. 
+After that it uses a grid-based system to snap the quests into place and avoid overlaps. To make it look more natural, a physics-based force simulation is applied, that pushes quests apart if they are too close and pulls them together if they are too far away. 
+The result is a well-organized and visually appealing quest map that clearly shows the relationships between different topics.
+
+//todo screenshot
+
+---
+
 ## User Moderation Tools
 
 Users can report other users if they find them inappropriate.
@@ -275,10 +296,13 @@ Additional dynamic homepage cards include:
 ## Home Page
 
 The home page includes:
+- Streaks (number of consecutive days the user has used the app)
 - Daily goals
 - Discover section (new content)
 - Following section (latest content from followed users)
+- Continue Watching section (videos that were started but not finished)
 
+//todo update screenshot
 
 <img width="785" height="1032" alt="image" src="https://github.com/user-attachments/assets/151aa6f6-f080-45bd-bc5d-47d521c6ac22" />
 

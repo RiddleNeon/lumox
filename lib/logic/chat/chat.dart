@@ -1,6 +1,5 @@
 import '../../base_logic.dart';
 import '../local_storage/local_seen_service.dart';
-import '../users/user_model.dart';
 
 class Chat {
   int conversationId;

@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:lumox/logic/chat/chat.dart';
 import 'package:lumox/logic/chat/chat_message.dart';
 import 'package:lumox/logic/local_storage/local_seen_service.dart';
@@ -11,6 +12,7 @@ import 'package:lumox/ui/widgets/overlays/share_button.dart';
 import 'package:lumox/ui/widgets/overlays/video_info_overlay.dart';
 
 import '../../../base_logic.dart';
+import '../../screens/auth_screen.dart';
 import 'comment_button.dart';
 import 'dislike_button.dart';
 import 'like_button.dart';
@@ -179,7 +181,17 @@ class _PageOverlayState extends State<PageOverlay> {
       timestamp: DateTime.now(),
     );
 
-    await chatRepository.sendNotification(chat: chat, message: message);
+    await chatRepository.sendNotification(chat: chat, message: message, onUserBanned: () {
+      if (context.mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) {
+              return const LoginScreen();
+            },
+          ),
+        );
+      }
+    });
     if (!mounted) return;
     await _prepareShareContacts();
   }

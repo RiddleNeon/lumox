@@ -13,6 +13,7 @@ import 'package:lumox/logic/video/video.dart';
 import 'package:lumox/ui/screens/chat/message_avatar.dart';
 import 'package:lumox/ui/screens/dictionary/dictionary_picker_sheet.dart';
 import 'package:lumox/ui/screens/search_screen/search_video_overlay.dart';
+import 'package:lumox/ui/theme/theme_creation_screen.dart';
 import 'package:lumox/ui/theme/theme_ui_values.dart';
 import 'package:lumox/ui/widgets/dictionary/dictionary_linkifier.dart';
 import 'package:lumox/ui/widgets/loading/shimmer_block.dart';
@@ -21,13 +22,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../base_logic.dart';
 import '../../../logic/chat/chat_message.dart';
 import '../../../logic/local_storage/local_seen_service.dart';
+import '../../../logic/repositories/chat_repository.dart';
+import '../auth_screen.dart';
 import '../profile_screen.dart';
 import 'calling_screen.dart';
 import 'chat_route_preview.dart';
 import 'message_bubble.dart';
 
 class MessagingScreen extends StatefulWidget {
-  final Future<ChatMessage> Function(String message) onSend;
+  final Future<ChatMessage> Function(String message, void Function()? onUserBanned) onSend;
   final Future<ChatMessage> Function(ChatMessage message, String newText) onEditOwnMessage;
   final Future<void> Function(ChatMessage message) onDeleteOwnMessage;
   final Future<List<MessageVersion>> Function(ChatMessage message) onLoadMessageVersions;
@@ -504,7 +507,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     }
   }
 
-  void _addMessage({
+  int _addMessage({
     required String text,
     required bool isMe,
     Future<void>? sendingFuture,
@@ -516,7 +519,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     String? id,
     bool cacheLocally = true,
   }) {
-    if (!mounted) return;
+    if (!mounted) return -1;
     final messageId = id ?? (createdAt ?? DateTime.now()).millisecondsSinceEpoch.toString();
     if (isNewMessage && cacheLocally) {
       widget.onMessageUpdateLocal(
@@ -577,6 +580,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
             debugPrint('send message failed: $e');
           });
     }
+    return _messages.indexWhere((m) => m.id == msg.id);
   }
   
   Future<void> startFakeTyping([Duration? offset]) async {
@@ -708,10 +712,20 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     HapticFeedback.lightImpact();
 
     final tempId = DateTime.now().millisecondsSinceEpoch.toString();
-    _addMessage(text: text, isMe: true, isNewMessage: true, id: tempId, autoScroll: true, cacheLocally: false);
+    int tempIndex = _addMessage(text: text, isMe: true, isNewMessage: true, id: tempId, autoScroll: true, cacheLocally: false);
 
     try {
-      final serverMessage = await widget.onSend(text);
+      final serverMessage = await widget.onSend(text, () {
+        if (context.mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) {
+                return const LoginScreen();
+              },
+            ),
+          );
+        }
+      },);
       if (mounted) {
         widget.onMessageUpdateLocal(serverMessage);
         int existingIndex = _messages.indexWhere((m) => m.id == serverMessage.id);
@@ -758,6 +772,13 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
             );
           });
         }
+      }
+    } on ContentModerationViolationException catch (e) {
+      if(mounted) {
+        showSnackBar(context, e.message);
+        setState(() {
+          _messages.removeAt(tempIndex);
+        });
       }
     } catch (e) {
       debugPrint('send message failed: $e');

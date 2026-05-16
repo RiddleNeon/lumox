@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_file_saver/flutter_web_file_saver.dart';
+import 'package:lumox/ui/screens/auth_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:lumox/base_ui.dart';
@@ -397,7 +398,17 @@ class _ThemeManagerScreenState extends State<ThemeManagerScreen> with TickerProv
       timestamp: DateTime.now(),
     );
 
-    await chatRepository.sendNotification(chat: chat, message: message);
+    await chatRepository.sendNotification(chat: chat, message: message, onUserBanned: () {
+      if (context.mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) {
+              return const LoginScreen();
+            },
+          ),
+        );
+      }
+    });
     if (!mounted) return;
     // We don't eagerly refresh the contacts here; overlays usually refresh after sending.
   }

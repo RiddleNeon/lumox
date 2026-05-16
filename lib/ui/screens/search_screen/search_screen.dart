@@ -22,6 +22,7 @@ import 'package:lumox/ui/screens/search_screen/widgets/search_video_card.dart';
 
 import '../../theme/theme_ui_values.dart';
 import '../../widgets/overlays/share_button.dart';
+import '../auth_screen.dart';
 
 enum SearchScope { videos, profiles, dictionary, all }
 
@@ -379,7 +380,17 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
 
     final message = ChatMessage(id: '${contact.id}-${DateTime.now().microsecondsSinceEpoch}', text: entry.route, isMe: true, timestamp: DateTime.now());
 
-    await chatRepository.sendNotification(chat: chat, message: message);
+    await chatRepository.sendNotification(chat: chat, message: message, onUserBanned: () {
+      if (context.mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) {
+              return const LoginScreen();
+            },
+          ),
+        );
+      }
+    });
     await localSeenService.sendMessageLocal(chat, message);
     if (!mounted) return;
     print("PREPARING!");

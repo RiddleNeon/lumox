@@ -29,6 +29,9 @@ void initRouter() {
     navigatorKey: appNavigatorKey,
     observers: [RouteObserver()],
     redirect: (context, state) async {
+      
+      if(state.uri.path == '/login-force') return '/login'; 
+      
       if (firstRoute && state.uri.path == '/feed') {
         firstRoute = false;
         return '/home';

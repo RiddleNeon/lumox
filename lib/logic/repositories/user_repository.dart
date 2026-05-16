@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:math';
 
+import 'package:lumox/util/misc/duration_to_future.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lumox/tools/supabase_tests/supabase_login_test.dart';
 
@@ -781,17 +783,9 @@ class UserRepository {
     _currentlySelfBanning = false;
   }
 
-  Future<void> unbanSelfSupabase(String currentUserId) async {
-    // Only for testing purposes, in a real app this should be handled by admins
-    await supabaseClient.from('profiles').update({"is_banned": false}).eq('id', currentUserId);
-  }
-
   Future<void> appealBanSupabase(String id, String reason) async {
-    await supabaseClient.from('ban_appeals').insert({"user_id": id, "appeal_message": reason, "created_at": DateTime.now().toIso8601String()});
-    await Future.delayed(const Duration(seconds: 5), () async {
-      await unbanSelfSupabase(id);
-      print("Simulating ban appeal review for user $id. In a real app, this would be handled by admins. Unbanning user.");
-    });
+    await supabaseClient.rpc('appeal_ban', params: {'p_user_id': id, 'p_appeal_message': reason});
+    await const Duration(seconds: 3).future;
   }
   
   Future<bool> isProUser(String userId) async {

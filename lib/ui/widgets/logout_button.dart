@@ -18,7 +18,7 @@ class _LogoutButtonState extends State<LogoutButton> {
       child: InkWell(
         onTap: () async {
           await onUserLogout();
-          routerConfig.go('/login');
+          routerConfig.go('/login-force');
         },
         child: const Icon(Icons.logout_rounded),
       ),

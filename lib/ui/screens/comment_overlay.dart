@@ -2,14 +2,18 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lumox/logic/repositories/chat_repository.dart';
 import 'package:lumox/ui/misc/avatar.dart';
 import 'package:lumox/ui/animations/slide_morph_transitions.dart';
+import 'package:lumox/ui/router/router.dart';
 import 'package:lumox/ui/theme/theme_ui_values.dart';
 
 import '../../base_logic.dart';
+import '../../base_ui.dart';
 import '../../logic/comments/comment.dart';
 import '../../logic/repositories/video_repository.dart';
 import '../../logic/video/video.dart';
+import 'auth_screen.dart';
 
 class _CommentVM {
   final Comment comment;
@@ -54,7 +58,7 @@ Future<void> openCommentsForVideo(Video video, BuildContext context) async {
     currentUsername: currentUser.username,
     currentUserProfileImageUrl: currentUser.profileImageUrl,
     initialCommentsCount: video.commentsCount,
-    onCommentAdded: (p0) async {
+    onCommentAdded: (p0) {
       return videoRepo.addComment(videoId, p0);
     },
     onLoadMore: () async {
@@ -249,8 +253,7 @@ class _CommentsOverlayState extends State<CommentsOverlay> {
 
     HapticFeedback.lightImpact();
     setState(() => _isSending = true);
-    await Future.delayed(const Duration(milliseconds: 180));
-
+    
     final target = _replyTarget;
 
     final newId = '${DateTime.now().millisecondsSinceEpoch}';
@@ -268,9 +271,42 @@ class _CommentsOverlayState extends State<CommentsOverlay> {
       replyCount: 0,
       likedByCurrentUser: false,
     );
-
-    final savedComment = await widget.onCommentAdded(newComment);
-
+    
+    
+    final Comment savedComment;
+    try {
+       savedComment = await widget.onCommentAdded(newComment);
+    } on UserBannedException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      Future.delayed(const Duration(seconds: 3), () {
+        userBannedHint = true;
+        userRepository.selfBanUserSupabase();
+        if (mounted) {
+          routerConfig.push("/login-force");
+        }
+      });
+      _isSending = false;
+      _textController.clear();
+      _focusNode.unfocus();
+      return;
+    } on ContentModerationViolationException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      _isSending = false;
+      _textController.clear();
+      _focusNode.unfocus();
+      return;
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to post comment. Please try again.')));
+      _isSending = false;
+      _textController.clear();
+      _focusNode.unfocus();
+      return;
+    }
+    
+    
     newComment.id = savedComment.id;
 
     final newVm = _toVM(newComment);

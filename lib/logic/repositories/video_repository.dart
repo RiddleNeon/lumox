@@ -5,6 +5,7 @@ import 'package:lumox/logic/video/video.dart';
 import 'package:lumox/tools/supabase_tests/supabase_login_test.dart';
 
 import '../../base_logic.dart';
+import 'chat_repository.dart';
 
 VideoRepository videoRepo = VideoRepository();
 
@@ -120,6 +121,28 @@ class VideoRepository {
       'post_comment',
       params: {'p_author_id': currentUser.id, 'p_video_id': videoId, 'p_parent_id': parentId, 'p_content': content},
     );
+    
+    
+    // structure of errors:
+    // < 0: error
+    // < -1000 used bad words, the more negative the id, the more bad words were used, so -1005 means 5 bad words, -1010 means 10 bad words, etc.
+    // == -5000 user is banned (no further information provided)
+    // < -5000 is banned and used bad words, the more negative the id, the more bad words were used, so -5005 means banned with 5 bad words, -5010 means banned with 10 bad words, etc.
+    bool isError = insertedId < 0;
+    
+    bool isUserBanned = insertedId <= -5000;
+    int usedBadWords = isError ? (-insertedId - (isUserBanned ? 5000 : 1000)) : 0;
+
+    if (usedBadWords > 0 && isUserBanned) {
+      print("User is banned and message contains $usedBadWords content warnings. error message: $insertedId");
+      throw UserBannedException("Your account has been banned due to repeated violations of our content guidelines. Additionally, this message contained content that may violate our guidelines. Please contact support for more information.");
+    } else if (usedBadWords > 0) {
+      throw ContentModerationViolationException(usedBadWords, "Message sent but contains content that may violate our guidelines. Please review the content and try again.");
+    } else if(isUserBanned) {
+      throw UserBannedException("Your account has been banned due to repeated violations of our content guidelines. Please contact support for more information.");
+    }
+    
+    
 
     return Comment(
       id: insertedId.toString(),

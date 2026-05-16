@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:lumox/logic/dictionary/dictionary_entry.dart';
 import 'package:lumox/logic/repositories/dictionary_repository.dart';
+import 'package:lumox/ui/screens/auth_screen.dart';
 import 'package:lumox/ui/widgets/dictionary/dictionary_linkifier.dart';
 import 'package:lumox/logic/chat/chat.dart';
 import 'package:lumox/logic/chat/chat_message.dart';
@@ -191,7 +192,17 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       timestamp: DateTime.now(),
     );
 
-    await chatRepository.sendNotification(chat: chat, message: message);
+    await chatRepository.sendNotification(chat: chat, message: message, onUserBanned: () {
+      if (context.mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) {
+              return const LoginScreen();
+            },
+          ),
+        );
+      }
+    },);
     await localSeenService.sendMessageLocal(chat, message);
     if (!mounted) return;
     await _prepareShareContacts();

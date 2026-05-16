@@ -1,3 +1,5 @@
+import 'package:lumox/base_ui.dart';
+
 import '../../base_logic.dart';
 import '../../tools/supabase_tests/supabase_login_test.dart';
 import '../chat/chat.dart';
@@ -14,7 +16,7 @@ class ChatRepository {
   Future<void>? _conversationSyncTask;
   DateTime? _lastConversationSyncAt;
 
-  Future<ChatMessage> sendNotification({required Chat chat, required ChatMessage message}) async {
+  Future<ChatMessage> sendNotification({required Chat chat, required ChatMessage message, void Function()? onUserBanned}) async {
     final receiverUid = chat.partnerId;
     final conversationId = await _getOrCreateDirectConversation(
       receiverUid,
@@ -23,21 +25,50 @@ class ChatRepository {
     );
     chat.conversationId = conversationId;
 
-    await supabaseClient
-        .from('conversations')
-        .update({'updated_at': DateTime.now().toUtc().toIso8601String(), 'last_message': "${currentUser.id}: ${message.text}"})
-        .eq('id', conversationId);
+    print("Sending message to conversation $conversationId with content: ${message.text}, replyToMessageId: ${message.replyToMessageId}");
+    
+    final Map<String, dynamic> responseJson = await supabaseClient.rpc('send_message', params: {
+      'p_conversation_id': conversationId,
+      'p_content': message.text,
+      'p_reply_to_message_id': message.replyToMessageId != null ? int.parse(message.replyToMessageId!) : null,
+    }).onError((error, stackTrace) {
+      print("ERROR sending message: $error");
+      return Future.error(error!, stackTrace);
+    },).then((value) {
+      print("Message sent successfully, server response: $value");
+      return value as Map<String, dynamic>;
+    },);
+    
+    print("Inserted message row. response json: $responseJson");
+    
+    bool successful = responseJson['success'] == true;
+    if (!successful) {
+      print("Server indicated failure in sending message. response: $responseJson");
+      
+      int? warningCount = responseJson['warning_count'] as int?;
+      String error = responseJson['error'] as String? ?? 'Unknown error';
+      bool isBanned = responseJson['is_banned'] as bool? ?? false;
+      
+      if(isBanned) {
+        
+        Future.delayed(const Duration(seconds: 5), () {
+          userBannedHint = true;
+          userRepository.selfBanUserSupabase();
+          onUserBanned?.call();
+        });
+      }
+      
+      if (error == "MESSAGE_MODERATION_VIOLATION" && warningCount != null && warningCount > 0) {
+        print("Message was sent but with $warningCount content warnings. error message: $error");
+        throw ContentModerationViolationException(warningCount, "Message sent but contains content that may violate our guidelines. Please review the content and try again.");
+      } else if(error == "USER_BANNED") {
+        throw UserBannedException("Your account has been banned due to repeated violations of our content guidelines. Please contact support for more information.");
+      } else {
+        throw Exception("Failed to send message: $error");
+      }
+    }
 
-    final List<dynamic> inserted = await supabaseClient.from('messages').insert({
-      'conversation_id': conversationId,
-      'sender_id': currentUser.id,
-      'content': message.text,
-      'type': 'text',
-      'created_at': message.timestamp.toUtc().toIso8601String(),
-      'reply_to_message_id': null,
-    }).select();
-
-    final actualMessage = _rowToChatMessage(inserted.first as Map<String, dynamic>);
+    final actualMessage = _rowToChatMessage(responseJson['message']);
 
     await localSeenService.sendMessageLocal(chat, actualMessage);
     chat.lastMessage = actualMessage.text;
@@ -418,4 +449,24 @@ class _CachedConversationId {
   _CachedConversationId(this.value) : cachedAt = DateTime.now();
 
   bool get isExpired => DateTime.now().difference(cachedAt) > _ttl;
+}
+
+
+class ContentModerationViolationException implements Exception {
+  final int warningCount;
+  final String message;
+
+  ContentModerationViolationException(this.warningCount, this.message);
+
+  @override
+  String toString() => 'ContentModerationViolationException: $message (warnings: $warningCount)';
+}
+
+class UserBannedException implements Exception {
+  final String message;
+
+  UserBannedException(this.message);
+
+  @override
+  String toString() => 'UserBannedException: $message';
 }

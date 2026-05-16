@@ -27,6 +27,8 @@ UserProfile get currentUser {
   return _currentUser!;
 }
 
+bool get currentUserAvailable => _currentUser != null;
+
 set currentUser(UserProfile newUser) {
   _currentUser = newUser;
 }
@@ -62,13 +64,47 @@ Future<void> onUserLogin(UserProfile user, bool firstTime) async {
   isUsersFirstLogin = firstTime;
   print("User logged in: ${user.id}");
   _currentUser = user;
+  lastUserProfile = user.copyWith();
   await onUserLoginSupabaseTest();
   useYoutubeVideosOnlyNotifier.value = bool.tryParse(await userRepository.getSetting(user.id, 'show_youtube')) ?? true;
   await clearAllWillPlaySoonReservations(userId: user.id);
   await initLocalSeenService();
   await applyThemeFromServer();
   await syncUserStreak();
+  startBanListener();
 }
+
+
+RealtimeChannel? _banChannel;
+
+Future<void> startBanListener() async {
+  _banChannel = supabaseClient
+      .channel('user-ban-listener')
+      .onPostgresChanges(
+    event: PostgresChangeEvent.update,
+    schema: 'public',
+    table: 'profiles',
+    filter: PostgresChangeFilter(
+      type: PostgresChangeFilterType.eq,
+      column: 'id',
+      value: currentUser.id,
+    ),
+    callback: (payload) async {
+      final newRow = payload.newRecord;
+
+      final isBanned = newRow['is_banned'] == true;
+
+      if (isBanned) {
+        print("User was banned.");
+
+        await onUserLogout();
+
+        await auth.signOut();
+      }
+    },
+  ).subscribe();
+}
+
 
 Future<void> syncUserStreak() async {
   final streakInfo = await userRepository.getStreakInfo();
@@ -155,6 +191,7 @@ Future<void> onUserLogout() async {
   UserPreferenceManager.reset();
   await feedViewModel.dispose();
   await youtubeFeedViewModel.dispose();
+  await _banChannel?.unsubscribe();
   _currentUser = null;
 }
 

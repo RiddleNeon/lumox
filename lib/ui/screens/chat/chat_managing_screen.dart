@@ -257,8 +257,6 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
     final timeString = formatTime(chat.lastMessageAt ?? chat.createdAt);
     final formattedMessage = _formatLastMessage(chat);
     
-    print("FROM HIGHLIGHT CARD: Chat with partnerId ${chat.partnerName}, is ai conversation: ${chat.isAiConversation}, is bot: ${chat.partnerIsAi}");
-
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
@@ -412,8 +410,6 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
 
     final formattedMessage = _formatLastMessage(chat);
     
-    print("FROM ENTRY: Chat with partnerId ${chat.partnerName}, is ai conversation: ${chat.isAiConversation}, is bot: ${chat.partnerIsAi}");
-
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
@@ -528,8 +524,6 @@ Widget buildMessagingScreen(Chat chat, void Function(ChatMessage) onMessageUpdat
         return const _MessagingScreenSkeleton();
       }
       
-      print("Opening chat screen for chat with partnerId ${chat.partnerName}. Chat is AI conversation: ${chat.isAiConversation}, partnerIsAi: ${chat.partnerIsAi}");
-
       return MessagingScreen(
         key: currentOpenChatScreenKey,
         user: asyncSnapshot.data!,
@@ -545,11 +539,12 @@ Widget buildMessagingScreen(Chat chat, void Function(ChatMessage) onMessageUpdat
         onDeleteOwnMessage: (message) async {
           await chatRepository.deleteMessage(otherUserId: chat.partnerId, messageId: message.id);
         },
-        onSend: (message) async {
+        onSend: (message, onUserBanned) async {
           chatManager.addChat(chat, replaceExisting: false);
           final serverMsg = await chatRepository.sendNotification(
             chat: chat,
             message: ChatMessage(id: "${chat.partnerId}-${DateTime.now().microsecondsSinceEpoch}", text: message, isMe: true, timestamp: DateTime.now()),
+            onUserBanned: onUserBanned,
           );
           return serverMsg;
         },

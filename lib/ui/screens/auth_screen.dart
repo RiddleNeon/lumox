@@ -4,7 +4,9 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lumox/base_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lumox/logic/repositories/user_repository.dart';
 import 'package:lumox/ui/animations/slide_morph_transitions.dart';
@@ -40,11 +42,12 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   int _modeDirection = 1;
   int _modeVersion = 0;
   bool _isLoading = false;
+  Type? _currentErrorType;
   String? _errorMessage;
   String? _successMessage;
-  bool _isBanned = false;
-  String? _signedInUserId;
-  UserProfile? _user;
+  bool _isBanned = userBannedHint;
+  String? _signedInUserId = lastUserProfileId ?? lastUserProfile?.id;
+  UserProfile? _user = lastUserProfile;
 
   // ── Form ───────────────────────────────────
 
@@ -79,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   ]).animate(CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut));
 
   // Ban banner: slide in from top
-  late final AnimationController _banController = AnimationController(vsync: this, duration: const Duration(milliseconds: 350));
+  late final AnimationController _banController = AnimationController(value: userBannedHint ? 1 : 0, vsync: this, duration: const Duration(milliseconds: 350));
 
   late final Animation<double> _banFade = CurvedAnimation(parent: _banController, curve: Curves.easeOut);
 
@@ -101,12 +104,22 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
   // ── Helpers ────────────────────────────────
 
-  void _setError(String? msg) {
+  void _setError(String? msg, Type type) {
     setState(() {
       _errorMessage = msg;
+      _currentErrorType = type;
       _successMessage = null;
     });
     if (msg != null) _shakeController.forward(from: 0);
+  }
+  
+  void _clearError(Type type) {
+    if(_currentErrorType == type) {
+      setState(() {
+        _errorMessage = null;
+        _currentErrorType = null;
+      });
+    }
   }
 
   void _setSuccess(String msg) {
@@ -161,12 +174,12 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       final response = await auth.signInWithPassword(email: _emailController.text.trim(), password: _passwordController.text);
       _signedInUserId = response.user?.id;
     } catch (e) {
-      _setError("Unable to sign in. ${e is AuthException ? e.message : ''}");
+      _setError("Unable to sign in. ${e is AuthException ? e.message : ''}", e.runtimeType);
       return;
     }
 
     if (_signedInUserId == null) {
-      _setError("Unable to sign in.");
+      _setError("Unable to sign in.", AuthException);
       return;
     }
 
@@ -182,11 +195,11 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     } on BanAuthException catch (e) {
       setState(() => _isBanned = true);
       _banController.forward();
-      _setError(e.message);
+      _setError(e.message, e.runtimeType);
     } on AuthException catch (e) {
-      _setError(e.message);
+      _setError(e.message, e.runtimeType);
     } catch (e) {
-      _setError("An unknown error occurred.");
+      _setError("An unknown error occurred.", e.runtimeType);
     }
   }
 
@@ -195,16 +208,16 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       final response = await auth.signUp(email: _emailController.text.trim(), password: _passwordController.text);
       _signedInUserId = response.user?.id;
       if (_signedInUserId == null) {
-        _setError("Unable to create account.");
+        _setError("Unable to create account.", AuthException);
         return;
       }
 
       if (!mounted) return;
       context.go('/signup-onboarding');
     } on AuthException catch (e) {
-      _setError(e.message);
+      _setError(e.message, e.runtimeType);
     } catch (e) {
-      _setError("An unknown error occurred.");
+      _setError("An unknown error occurred.", e.runtimeType);
     }
   }
 
@@ -218,9 +231,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       );
       _setSuccess("Password reset email sent! Check your inbox.");
     } on AuthException catch (e) {
-      _setError(e.message);
+      _setError(e.message, e.runtimeType);
     } catch (e) {
-      _setError("An error occurred.");
+      _setError("An error occurred.", e.runtimeType);
     }
   }
 
@@ -236,7 +249,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   }
 
   Future<void> _openBanAppeal() async {
-    if (_signedInUserId == null) return;
+    if (_signedInUserId == null) {
+      print("signed in user is null!");
+      return;
+    }
     await showDialog(
       context: context,
       builder: (_) => BanAppealScreen(
@@ -244,7 +260,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         onAppealSuccess: () {
           setState(() => _isBanned = false);
           _banController.reverse();
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Appeal successful! You are now unbanned.")));
+          _setSuccess("Appeal successful! You are now unbanned.");
+          _clearError(BanAuthException);
         },
       ),
     );
@@ -1033,7 +1050,12 @@ class _SignupOnboardingScreenState extends State<SignupOnboardingScreen> with Ti
       context: context,
       builder: (context) => AlertDialog(
         title: Text(title),
-        content: SingleChildScrollView(child: Text(body)),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560, maxHeight: 520),
+          child: SingleChildScrollView(
+            child: MarkdownBody(data: body),
+          ),
+        ),
         actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
       ),
     );
@@ -1457,7 +1479,7 @@ class _SignupOnboardingScreenState extends State<SignupOnboardingScreen> with Ti
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
-              onPressed: () => _showAgreement('EULA', 'By using this app, you agree to the end user license agreement and acceptable use terms.'),
+              onPressed: () => _showAgreement('EULA', _EULA),
               child: const Text('Read EULA'),
             ),
           ),
@@ -1472,7 +1494,7 @@ class _SignupOnboardingScreenState extends State<SignupOnboardingScreen> with Ti
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
-              onPressed: () => _showAgreement('Data Processing Agreement', 'We process your data to provide app features, moderation, personalization, and account security.'),
+              onPressed: () => _showAgreement('Data Processing Agreement', _dataProcessingAgreement),
               child: const Text('Read data processing agreement'),
             ),
           ),
@@ -1749,3 +1771,159 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> with TickerPr
     );
   }
 }
+
+
+
+// ignore: constant_identifier_names
+const String _EULA = '''
+# End User License Agreement (EULA)
+
+**Effective Date:** May 16, 2026
+**App Name:** Lumox 
+**Operator:** RiddleNeon 
+
+## 1. Acceptance of Terms
+By accessing or using the App, you agree to this EULA and all applicable laws. If you do not agree, do not use the App.
+
+## 2. Eligibility; Minors
+The App is intended for students and may be used by minors where permitted. If you are under the age of digital consent in your jurisdiction (or under 13 in the United States), you may use the App only with verifiable consent from a parent or legal guardian. Parents/guardians are responsible for the minor’s use of the App and for supervising content shared, including videos, comments, and messages. We may require age verification or parental consent at any time and may suspend accounts that do not meet these requirements.
+
+## 3. License Grant
+We grant you a limited, non-exclusive, non-transferable, revocable license to use the App for personal, educational purposes only, subject to this EULA.
+
+## 4. Prohibited Uses
+You agree not to, and not to assist others to:
+
+- Violate any local, national, or international laws or regulations.
+- Use the App for illegal purposes, including fraud, identity theft, or harassment.
+- Engage in hate speech, racism, antisemitism, or discrimination based on protected characteristics.
+- Post, request, or distribute NSFW, sexually explicit, or pornographic content.
+- Attempt to jailbreak, bypass, or override AI safety controls or system limitations.
+- Use AI features for non-educational purposes, harmful content, or unlawful activity.
+- Impersonate any person or entity or misrepresent your affiliation.
+- Attempt to access, scrape, or steal content or data that you do not own or have rights to use.
+- Violate the privacy or rights of others (including doxxing or unauthorized collection of personal data).
+- Upload or distribute malware, exploit code, or attempt to interfere with the App’s security.
+- Reverse engineer, decompile, or tamper with the App except as allowed by law.
+- Circumvent access controls, rate limits, or usage restrictions.
+
+## 5. Third-Party AI and Services
+The App integrates third-party AI services (for example, OpenRouter and underlying model providers). You must not:
+
+- Attempt to “jailbreak” the AI or solicit prohibited content.
+- Use AI outputs for illegal, harmful, or abusive purposes.
+- Rely on AI outputs as professional advice (legal, medical, financial, etc.).
+
+## 6. User Content and Conduct
+You are responsible for content you post or share (for example, videos, comments, messages). You represent that you have the rights to upload or share content and that it does not violate any laws or third-party rights.
+
+### 6.5 Minor Safety and School Use
+Users must not solicit or share personal contact information from minors, and must not attempt to identify, track, or contact minors outside the App. If the App is used in a school or classroom setting, educators and administrators are responsible for ensuring use complies with applicable school policies and laws.
+
+## 7. No Ownership of Displayed Media
+Media shown in the App may be sourced from third parties. The App does not claim ownership of such media. You may not copy, download, redistribute, or otherwise use third-party content unless you have the lawful right to do so.
+
+## 8. Moderation and Enforcement
+We may remove content, limit visibility, or suspend/terminate accounts for violations, with or without notice where permitted by law.
+
+## 9. Intellectual Property
+The App and its original content, features, and design are owned by Lumox and protected by intellectual property laws. You may not use our trademarks without permission.
+
+## 10. Privacy
+Your use of the App is subject to our Privacy Policy and DPA (where applicable).
+
+## 11. Disclaimers
+The App is provided “as is” and “as available.” We do not guarantee accuracy, reliability, or availability. AI outputs may be incorrect or biased.
+
+## 12. Limitation of Liability
+To the maximum extent permitted by law, Lumox is not liable for indirect, incidental, special, or consequential damages, or loss of data, profits, or goodwill.
+
+## 13. Indemnification
+You agree to indemnify and hold harmless Lumox from claims arising out of your use of the App or violation of this EULA.
+
+## 14. Termination
+We may terminate or suspend access at any time for violations. Sections that should survive termination will do so.
+
+## 15. Changes
+We may update this EULA from time to time. Continued use after changes means you accept the updated terms.
+''';
+
+const String _dataProcessingAgreement = '''
+# Data Processing Agreement (DPA)
+
+**Effective Date:** May 16, 2026
+**Controller:** Lumox  
+**Processor:** Lumox (if you act as processor for business customers)  
+
+## 1. Scope
+This DPA describes how we process personal data in connection with the App and in compliance with applicable data protection laws (for example, GDPR, UK GDPR, CCPA/CPRA as applicable).
+
+## 2. Roles
+- **Controller:** Lumox determines the purposes and means of processing.
+- **Processors/Subprocessors:** Third-party service providers (for example, Supabase, OpenRouter, YouTube) may process data on our behalf.
+
+## 3. Categories of Data
+We may process:
+
+- Account data (username, email, hashed password)
+- User-generated content (videos, comments, messages)
+- Usage data (logs, device info, analytics)
+- Support communications
+- AI interaction data (prompts, outputs) where applicable
+
+## 4. Purposes of Processing
+- Provide and improve App functionality
+- Enable social features (comments, chats, follows)
+- Content moderation and safety
+- Security, fraud prevention, and abuse detection
+- AI feature operation and troubleshooting
+- Legal compliance
+
+## 5. Data Selling and Sharing
+We do not sell user data. We share data only with service providers necessary to operate the App, or as required by law.
+
+## 6. Subprocessors
+We use third-party services, including:
+
+- Supabase (hosting, database, auth, storage)
+- OpenRouter / AI Providers (AI processing)
+- YouTube (embedded content and related APIs)
+
+We require subprocessors to protect data and not sell or misuse it. Supabase and other providers may have technical access but are not permitted to use data for their own purposes beyond service delivery.
+
+## 7. International Transfers
+Data may be processed in countries other than your own. We use legal safeguards (for example, SCCs) where required.
+
+## 8. Security Measures
+We apply reasonable technical and organizational measures, including:
+
+- Encryption in transit (TLS)
+- Access controls and least-privilege policies
+- Monitoring and abuse detection
+- Regular backups and incident response procedures
+
+## 9. Data Retention
+We retain data only as long as needed for the purposes stated, or as required by law. Users may request deletion of their data where applicable.
+
+## 10. User Rights
+Depending on your jurisdiction, you may have rights to access, correct, delete, or export your data, and to object or restrict processing.
+
+## 11. Children’s Data
+The App is designed for students and may be used by minors. We process children’s data only as necessary to provide the App and comply with applicable law. Where required (for example, COPPA in the U.S. or local digital consent laws), we obtain verifiable parental consent before collecting personal data from children. We do not knowingly permit targeted advertising to minors and do not sell children’s data.
+
+### 11.1 Data Minimization for Minors
+We limit the collection and use of minors’ data to what is necessary for App functionality and safety. We do not require unnecessary personal information from minors to access core learning features.
+
+## 12. Data Breach Notification
+We will notify users and regulators of a breach when legally required and without undue delay.
+
+## 13. AI Data Handling
+AI inputs/outputs may be processed by third-party providers to deliver features. We do not use AI interaction data to sell user data. Some AI providers may retain data to improve services; refer to their policies where applicable.
+
+## 14. Content and Third-Party Media
+User-uploaded content remains the user’s responsibility. Third-party media displayed in the App is subject to their respective terms.
+
+## 15. Changes to This DPA
+We may update this DPA. Material changes will be communicated as required.
+''';
+
