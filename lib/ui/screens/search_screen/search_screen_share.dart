@@ -74,13 +74,7 @@ extension _SearchScreenShare on _SearchScreenState {
 
     await chatRepository.sendNotification(chat: chat, message: message, onUserBanned: () {
       if (context.mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) {
-              return const LoginScreen();
-            },
-          ),
-        );
+        routerConfig.go('/login-force');
       }
     });
     await localSeenService.sendMessageLocal(chat, message);

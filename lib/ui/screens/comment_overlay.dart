@@ -282,7 +282,7 @@ class _CommentsOverlayState extends State<CommentsOverlay> {
         userBannedHint = true;
         userRepository.selfBanUserSupabase();
         if (mounted) {
-          routerConfig.push("/login-force");
+          routerConfig.go("/login-force");
         }
       });
       _isSending = false;

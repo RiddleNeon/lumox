@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_file_saver/flutter_web_file_saver.dart';
+import 'package:lumox/ui/router/router.dart';
 import 'package:lumox/ui/screens/auth_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -78,10 +79,10 @@ class _ThemeManagerScreenState extends State<ThemeManagerScreen> with TickerProv
     _loadCommunityThemes().then((_) {
       // After loading community themes, if this was a deep link, apply the theme
       if (shouldAutoApplyTheme && mounted) {
-        applyTheme(widget.initialThemeId!, pushToServer: true);
+        applyTheme(widget.initialThemeId!, pushToServer: true, force: true);
       }
     });
-    _loadLikedIds();
+    _loadLikedIds();    
   }
 
   String? get _uid => _supabase.auth.currentUser?.id;
@@ -318,6 +319,10 @@ class _ThemeManagerScreenState extends State<ThemeManagerScreen> with TickerProv
   }
 
   Future<void> applyTheme(String id, {bool pushToServer = true, bool force = false}) async {
+    
+    print("APPLIING THEME $id (force: $force, pushToServer: $pushToServer)");
+    
+    
     final normalizedId = _normalizeThemeId(id);
     if (!force && _selectedThemeId == normalizedId) return;
 
@@ -400,13 +405,7 @@ class _ThemeManagerScreenState extends State<ThemeManagerScreen> with TickerProv
 
     await chatRepository.sendNotification(chat: chat, message: message, onUserBanned: () {
       if (context.mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) {
-              return const LoginScreen();
-            },
-          ),
-        );
+        routerConfig.go('/login-force');
       }
     });
     if (!mounted) return;

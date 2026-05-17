@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -30,24 +32,24 @@ Future<ChatAttachmentAction?> showChatAttachmentActionSheet(
           children: [
             ListTile(
               leading: const Icon(Icons.upload_file_outlined),
-              title: const Text('Bild aus Datei hochladen'),
+              title: const Text('Add image from file'),
               onTap: () =>
                   Navigator.of(ctx).pop(ChatAttachmentAction.fileImage),
             ),
             ListTile(
               leading: const Icon(Icons.link_outlined),
-              title: const Text('Bild per URL einfuegen'),
+              title: const Text('Add image via URL'),
               onTap: () => Navigator.of(ctx).pop(ChatAttachmentAction.urlImage),
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Bild mit Kamera hochladen'),
+              title: const Text('Add image from camera'),
               onTap: () =>
                   Navigator.of(ctx).pop(ChatAttachmentAction.cameraImage),
             ),
             ListTile(
               leading: const Icon(Icons.route_outlined),
-              title: const Text('Deep-Link senden'),
+              title: const Text('Send Lumox Action'),
               onTap: () => Navigator.of(ctx).pop(ChatAttachmentAction.deepLink),
             ),
             const SizedBox(height: 8),
@@ -67,8 +69,8 @@ Future<String?> showChatFileImageUploadSheet(
     isScrollControlled: true,
     useSafeArea: true,
     builder: (_) => _ImageUploadSheet(
-      title: 'Datei hochladen',
-      actionLabel: 'Datei waehlen',
+      title: 'Upload from File',
+      actionLabel: 'choose File',
       icon: Icons.upload_file_outlined,
       uploadImage: uploadImage,
       pickMode: _ImagePickMode.file,
@@ -85,8 +87,8 @@ Future<String?> showChatCameraImageUploadSheet(
     isScrollControlled: true,
     useSafeArea: true,
     builder: (_) => _ImageUploadSheet(
-      title: 'Kamera-Upload',
-      actionLabel: kIsWeb ? 'Foto aufnehmen' : 'Foto waehlen',
+      title: 'Camera-Upload',
+      actionLabel: kIsWeb ? 'capture photo' : 'choose from your gallery',
       icon: Icons.camera_alt_outlined,
       uploadImage: uploadImage,
       pickMode: _ImagePickMode.camera,
@@ -174,7 +176,7 @@ class _ImageUploadSheetState extends State<_ImageUploadSheet> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Upload fehlgeschlagen: $e')));
+      ).showSnackBar(SnackBar(content: Text('Upload Failed: $e')));
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -239,7 +241,7 @@ class _ImageUploadSheetState extends State<_ImageUploadSheet> {
                       )
                     : const Icon(Icons.send_rounded),
                 label: Text(
-                  _uploading ? 'Wird hochgeladen...' : 'Als Chat-Bild senden',
+                  _uploading ? 'Uploading Image...' : 'Send!',
                 ),
               ),
             ],
@@ -307,7 +309,7 @@ class _UrlImageSheetState extends State<_UrlImageSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Bild-URL einfuegen',
+                'Append Image-URL',
                 style: Theme.of(
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
@@ -346,7 +348,7 @@ class _UrlImageSheetState extends State<_UrlImageSheet> {
                       )
                     : Center(
                         child: Text(
-                          'Gueltige Bild-URL eingeben',
+                          'Enter a valid image url (ending with .png, .jpg, .jpeg, .gif, .webp, .bmp, .svg or from cloudinary)',
                           style: TextStyle(color: cs.onSurfaceVariant),
                         ),
                       ),
@@ -357,7 +359,7 @@ class _UrlImageSheetState extends State<_UrlImageSheet> {
                     ? () => Navigator.of(context).pop(_url)
                     : null,
                 icon: const Icon(Icons.send_rounded),
-                label: const Text('Als Chat-Bild senden'),
+                label: const Text('Send as Image URL'),
               ),
             ],
           ),
@@ -367,16 +369,7 @@ class _UrlImageSheetState extends State<_UrlImageSheet> {
   }
 }
 
-enum _DeepLinkType {
-  feed,
-  profile,
-  chat,
-  themes,
-  search,
-  ownProfile,
-  quests,
-  logout,
-}
+enum _DeepLinkType { feed, profile, chat, themes, search, quests }
 
 class _DeepLinkBuilderSheet extends StatefulWidget {
   const _DeepLinkBuilderSheet();
@@ -394,12 +387,13 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
   DeepLinkThemeTab _themeTab = DeepLinkThemeTab.community;
   DeepLinkSearchScope _searchScope = DeepLinkSearchScope.all;
   DeepLinkSearchMode _searchMode = DeepLinkSearchMode.text;
-  bool _questsZoomOut = true;
   final TextEditingController _searchQueryController = TextEditingController();
+  final TextEditingController _questSubjectController = TextEditingController();
 
   @override
   void dispose() {
     _searchQueryController.dispose();
+    _questSubjectController.dispose();
     super.dispose();
   }
 
@@ -418,17 +412,16 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
             ? DeepLinkBuilder.themes(themeId: _selectedTheme!.id)
             : DeepLinkBuilder.themes(tab: _themeTab);
       case _DeepLinkType.search:
+        final hasQuery = _searchQueryController.text.trim().isNotEmpty;
         return DeepLinkBuilder.search(
           query: _searchQueryController.text.trim(),
-          scope: _searchScope,
-          mode: _searchMode,
+          scope: hasQuery ? _searchScope : DeepLinkSearchScope.all,
+          mode: hasQuery ? _searchMode : DeepLinkSearchMode.text,
         );
-      case _DeepLinkType.ownProfile:
-        return DeepLinkBuilder.ownProfile(tab: _profileTab);
       case _DeepLinkType.quests:
-        return DeepLinkBuilder.quests(zoomOutIfNeeded: _questsZoomOut);
-      case _DeepLinkType.logout:
-        return DeepLinkBuilder.logout();
+        return DeepLinkBuilder.quests(
+          subject: _questSubjectController.text.trim(),
+        );
     }
   }
 
@@ -459,7 +452,7 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => const _ThemePickerSheet(),
+      builder: (_) => _ThemePickerSheet(initialTab: _themeTab),
     );
     if (!mounted || selected == null) return;
     setState(() => _selectedTheme = selected);
@@ -472,9 +465,7 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
       _DeepLinkType.chat => _selectedProfile != null,
       _DeepLinkType.themes => true,
       _DeepLinkType.search => true,
-      _DeepLinkType.ownProfile => true,
       _DeepLinkType.quests => true,
-      _DeepLinkType.logout => true,
     };
   }
 
@@ -499,7 +490,8 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<_DeepLinkType>(
-                value: _type,
+                key: ValueKey(_type),
+                initialValue: _type,
                 items: const [
                   DropdownMenuItem(
                     value: _DeepLinkType.feed,
@@ -522,16 +514,8 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
                     child: Text('search'),
                   ),
                   DropdownMenuItem(
-                    value: _DeepLinkType.ownProfile,
-                    child: Text('own profile'),
-                  ),
-                  DropdownMenuItem(
                     value: _DeepLinkType.quests,
                     child: Text('quests'),
-                  ),
-                  DropdownMenuItem(
-                    value: _DeepLinkType.logout,
-                    child: Text('logout'),
                   ),
                 ],
                 onChanged: (value) {
@@ -583,7 +567,8 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<DeepLinkProfileTab>(
-              value: _profileTab,
+              key: ValueKey(_profileTab),
+              initialValue: _profileTab,
               items: const [
                 DropdownMenuItem(
                   value: DeepLinkProfileTab.videos,
@@ -614,6 +599,7 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
           onTap: _pickProfile,
         );
       case _DeepLinkType.themes:
+        final canChangeThemeTab = _selectedTheme == null;
         return Column(
           children: [
             _SelectionButton(
@@ -625,7 +611,9 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<DeepLinkThemeTab>(
-              value: _themeTab,
+              key: ValueKey(_themeTab),
+              initialValue: _themeTab,
+              onTap: canChangeThemeTab ? null : () {},
               items: const [
                 DropdownMenuItem(
                   value: DeepLinkThemeTab.community,
@@ -636,99 +624,114 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
                   child: Text('Tab: Own'),
                 ),
               ],
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() => _themeTab = value);
-              },
+              onChanged: canChangeThemeTab
+                  ? (value) {
+                      if (value == null) return;
+                      setState(() => _themeTab = value);
+                    }
+                  : null,
             ),
+            if (!canChangeThemeTab)
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text(
+                  'Tab selection is disabled while a specific theme is selected.',
+                ),
+              ),
+            if (!canChangeThemeTab)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => setState(() => _selectedTheme = null),
+                  icon: const Icon(Icons.clear_rounded),
+                  label: const Text('Use tab link instead'),
+                ),
+              ),
           ],
         );
       case _DeepLinkType.search:
+        final hasQuery = _searchQueryController.text.trim().isNotEmpty;
+        final canUseTagMode =
+            hasQuery && _searchScope == DeepLinkSearchScope.videos;
         return Column(
           children: [
             TextField(
               controller: _searchQueryController,
+              onChanged: (_) => setState(() {
+                if (_searchScope != DeepLinkSearchScope.videos) {
+                  _searchMode = DeepLinkSearchMode.text;
+                }
+              }),
               decoration: const InputDecoration(
-                hintText: 'Suchtext (optional)',
+                hintText: 'search text (optional)',
               ),
             ),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<DeepLinkSearchScope>(
-              value: _searchScope,
-              items: const [
-                DropdownMenuItem(
-                  value: DeepLinkSearchScope.all,
-                  child: Text('Scope: all'),
-                ),
-                DropdownMenuItem(
-                  value: DeepLinkSearchScope.videos,
-                  child: Text('Scope: videos'),
-                ),
-                DropdownMenuItem(
-                  value: DeepLinkSearchScope.profiles,
-                  child: Text('Scope: profile'),
-                ),
-                DropdownMenuItem(
-                  value: DeepLinkSearchScope.dictionary,
-                  child: Text('Scope: dictionary'),
-                ),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() => _searchScope = value);
-              },
-            ),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<DeepLinkSearchMode>(
-              value: _searchMode,
-              items: const [
-                DropdownMenuItem(
-                  value: DeepLinkSearchMode.text,
-                  child: Text('Mode: text'),
-                ),
-                DropdownMenuItem(
-                  value: DeepLinkSearchMode.tags,
-                  child: Text('Mode: tags'),
-                ),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() => _searchMode = value);
-              },
-            ),
+            if (hasQuery) ...[
+              const SizedBox(height: 10),
+              DropdownButtonFormField<DeepLinkSearchScope>(
+                key: ValueKey(_searchScope),
+                initialValue: _searchScope,
+                items: const [
+                  DropdownMenuItem(
+                    value: DeepLinkSearchScope.all,
+                    child: Text('Scope: all'),
+                  ),
+                  DropdownMenuItem(
+                    value: DeepLinkSearchScope.videos,
+                    child: Text('Scope: videos'),
+                  ),
+                  DropdownMenuItem(
+                    value: DeepLinkSearchScope.profiles,
+                    child: Text('Scope: profile'),
+                  ),
+                  DropdownMenuItem(
+                    value: DeepLinkSearchScope.dictionary,
+                    child: Text('Scope: dictionary'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _searchScope = value;
+                    if (_searchScope != DeepLinkSearchScope.videos) {
+                      _searchMode = DeepLinkSearchMode.text;
+                    }
+                  });
+                },
+              ),
+            ],
+            if (canUseTagMode) ...[
+              const SizedBox(height: 10),
+              DropdownButtonFormField<DeepLinkSearchMode>(
+                key: ValueKey(_searchMode),
+                initialValue: _searchMode,
+                items: const [
+                  DropdownMenuItem(
+                    value: DeepLinkSearchMode.text,
+                    child: Text('Mode: text'),
+                  ),
+                  DropdownMenuItem(
+                    value: DeepLinkSearchMode.tags,
+                    child: Text('Mode: tags'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _searchMode = value);
+                },
+              ),
+            ],
           ],
-        );
-      case _DeepLinkType.ownProfile:
-        return DropdownButtonFormField<DeepLinkProfileTab>(
-          value: _profileTab,
-          items: const [
-            DropdownMenuItem(
-              value: DeepLinkProfileTab.videos,
-              child: Text('Tab: videos'),
-            ),
-            DropdownMenuItem(
-              value: DeepLinkProfileTab.followers,
-              child: Text('Tab: followers'),
-            ),
-            DropdownMenuItem(
-              value: DeepLinkProfileTab.following,
-              child: Text('Tab: following'),
-            ),
-          ],
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() => _profileTab = value);
-          },
         );
       case _DeepLinkType.quests:
-        return SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          value: _questsZoomOut,
-          title: const Text('allow Automatic Zoom-Out'),
-          onChanged: (value) => setState(() => _questsZoomOut = value),
+        return TextField(
+          controller: _questSubjectController,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            hintText: 'Subject (optional, e.g. Math)',
+            prefixIcon: Icon(Icons.subject_outlined),
+          ),
         );
-      case _DeepLinkType.logout:
-        return const Text('The Link Logouts the user when opened');
     }
   }
 }
@@ -771,24 +774,33 @@ class _VideoPickerSheetState extends State<_VideoPickerSheet> {
   final TextEditingController _searchController = TextEditingController();
   List<Video> _items = const [];
   bool _loading = true;
+  Timer? _searchDebounce;
+  int _requestId = 0;
 
   @override
   void initState() {
     super.initState();
     _load();
-    _searchController.addListener(_load);
+    _searchController.addListener(_onQueryChanged);
+  }
+
+  void _onQueryChanged() {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 220), _load);
   }
 
   @override
   void dispose() {
     _searchController
-      ..removeListener(_load)
+      ..removeListener(_onQueryChanged)
       ..dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
   Future<void> _load() async {
     final query = _searchController.text.trim();
+    final requestId = ++_requestId;
     setState(() => _loading = true);
     try {
       final results = query.isEmpty
@@ -796,12 +808,13 @@ class _VideoPickerSheetState extends State<_VideoPickerSheet> {
           : (await videoRepo.searchVideos(
               query,
               limit: 30,
-              showYoutube: true,
+              withAuthor: true,
+              showYoutube: useYoutubeVideosOnlyNotifier.value,
             )).videos;
-      if (!mounted) return;
+      if (!mounted || requestId != _requestId) return;
       setState(() => _items = results);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && requestId == _requestId) setState(() => _loading = false);
     }
   }
 
@@ -857,33 +870,52 @@ class _ProfilePickerSheetState extends State<_ProfilePickerSheet> {
   final TextEditingController _searchController = TextEditingController();
   List<UserProfile> _items = const [];
   bool _loading = true;
+  Timer? _searchDebounce;
+  int _requestId = 0;
 
   @override
   void initState() {
     super.initState();
     _load();
-    _searchController.addListener(_load);
+    _searchController.addListener(_onQueryChanged);
+  }
+
+  void _onQueryChanged() {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 220), _load);
   }
 
   @override
   void dispose() {
     _searchController
-      ..removeListener(_load)
+      ..removeListener(_onQueryChanged)
       ..dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
   Future<void> _load() async {
     final query = _searchController.text.trim();
+    final requestId = ++_requestId;
     setState(() => _loading = true);
     try {
-      final results = query.isEmpty
-          ? await userRepository.getFollowing(currentUser.id, limit: 50)
-          : (await userRepository.searchUsers(query, limit: 50)).users;
-      if (!mounted) return;
+      final results = (await userRepository.searchUsers(
+        query,
+        limit: 50,
+      )).users;
+      if (!mounted || requestId != _requestId) return;
       setState(() => _items = results);
+    } catch (_) {
+      if (query.isEmpty) {
+        final fallback = await userRepository.getFollowing(
+          currentUser.id,
+          limit: 50,
+        );
+        if (!mounted || requestId != _requestId) return;
+        setState(() => _items = fallback);
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && requestId == _requestId) setState(() => _loading = false);
     }
   }
 
@@ -924,7 +956,9 @@ class _ProfilePickerSheetState extends State<_ProfilePickerSheet> {
 }
 
 class _ThemePickerSheet extends StatefulWidget {
-  const _ThemePickerSheet();
+  const _ThemePickerSheet({required this.initialTab});
+
+  final DeepLinkThemeTab initialTab;
 
   @override
   State<_ThemePickerSheet> createState() => _ThemePickerSheetState();
@@ -935,57 +969,77 @@ class _ThemePickerSheetState extends State<_ThemePickerSheet> {
   final SupabaseClient _supabase = Supabase.instance.client;
   List<CustomThemeModel> _items = const [];
   bool _loading = true;
+  Timer? _searchDebounce;
+  int _requestId = 0;
+  late DeepLinkThemeTab _tab;
 
   @override
   void initState() {
     super.initState();
+    _tab = widget.initialTab;
     _load();
-    _searchController.addListener(_load);
+    _searchController.addListener(_onQueryChanged);
+  }
+
+  void _onQueryChanged() {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 220), _load);
   }
 
   @override
   void dispose() {
     _searchController
-      ..removeListener(_load)
+      ..removeListener(_onQueryChanged)
       ..dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
   Future<void> _load() async {
     final query = _searchController.text.trim();
+    final requestId = ++_requestId;
     setState(() => _loading = true);
     try {
       final uid = _supabase.auth.currentUser?.id;
-      final ownRows = uid == null
-          ? const <dynamic>[]
-          : await _supabase
-                .from('themes')
-                .select()
-                .eq('created_by', uid)
-                .order('created_at', ascending: false)
-                .limit(30);
-      var publicQuery = _supabase.from('themes').select().eq('is_public', true);
-      if (query.isNotEmpty) {
-        publicQuery = publicQuery.ilike('name', '%$query%');
+      if (_tab == DeepLinkThemeTab.own) {
+        if (uid == null) {
+          if (!mounted || requestId != _requestId) return;
+          setState(() => _items = const []);
+          return;
+        }
+        var ownQuery = _supabase.from('themes').select().eq('created_by', uid);
+        if (query.isNotEmpty) {
+          ownQuery = ownQuery.ilike('name', '%$query%');
+        }
+        final ownRows = await ownQuery
+            .order('created_at', ascending: false)
+            .limit(60);
+        if (!mounted || requestId != _requestId) return;
+        setState(
+          () => _items = List<Map<String, dynamic>>.from(
+            ownRows,
+          ).map(CustomThemeModel.fromJson).toList(),
+        );
+      } else {
+        var publicQuery = _supabase
+            .from('themes')
+            .select()
+            .eq('is_public', true);
+        if (query.isNotEmpty) {
+          publicQuery = publicQuery.ilike('name', '%$query%');
+        }
+        final publicRows = await publicQuery
+            .order('likes_count', ascending: false)
+            .limit(60);
+        if (!mounted || requestId != _requestId) return;
+        setState(
+          () => _items = List<Map<String, dynamic>>.from(
+            publicRows,
+          ).map(CustomThemeModel.fromJson).toList(),
+        );
       }
-      final publicRows = await publicQuery
-          .order('likes_count', ascending: false)
-          .limit(60);
-
-      final publicList = List<Map<String, dynamic>>.from(publicRows);
-      final ownList = List<Map<String, dynamic>>.from(ownRows);
-
-      final merged = <String, CustomThemeModel>{
-        for (final row in publicList)
-          row['id'] as String: CustomThemeModel.fromJson(row),
-        for (final row in ownList)
-          row['id'] as String: CustomThemeModel.fromJson(row),
-      };
-
-      if (!mounted) return;
-      setState(() => _items = merged.values.toList());
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && requestId == _requestId) setState(() => _loading = false);
     }
   }
 
@@ -996,6 +1050,30 @@ class _ThemePickerSheetState extends State<_ThemePickerSheet> {
       title: 'select theme',
       controller: _searchController,
       hint: 'search themes',
+      prefix: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        child: SegmentedButton<DeepLinkThemeTab>(
+          segments: const [
+            ButtonSegment(
+              value: DeepLinkThemeTab.community,
+              label: Text('Community'),
+              icon: Icon(Icons.public_outlined),
+            ),
+            ButtonSegment(
+              value: DeepLinkThemeTab.own,
+              label: Text('Own'),
+              icon: Icon(Icons.person_outline),
+            ),
+          ],
+          selected: {_tab},
+          onSelectionChanged: (selected) {
+            final next = selected.first;
+            if (next == _tab) return;
+            setState(() => _tab = next);
+            _load();
+          },
+        ),
+      ),
       loading: _loading,
       itemCount: _items.length,
       itemBuilder: (context, index) {
@@ -1006,8 +1084,8 @@ class _ThemePickerSheetState extends State<_ThemePickerSheet> {
           title: Text(theme.name, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: Text(
             isOwn
-                ? 'Eigenes Theme'
-                : (theme.isPublic ? 'Community Theme' : 'Privates Theme'),
+                ? 'Own Theme'
+                : (theme.isPublic ? 'Community Theme' : 'Private Theme'),
           ),
           onTap: () => Navigator.of(context).pop(theme),
         );
@@ -1021,6 +1099,7 @@ class _PickerScaffold extends StatelessWidget {
     required this.title,
     required this.controller,
     required this.hint,
+    this.prefix,
     required this.loading,
     required this.itemCount,
     required this.itemBuilder,
@@ -1029,6 +1108,7 @@ class _PickerScaffold extends StatelessWidget {
   final String title;
   final TextEditingController controller;
   final String hint;
+  final Widget? prefix;
   final bool loading;
   final int itemCount;
   final NullableIndexedWidgetBuilder itemBuilder;
@@ -1072,11 +1152,12 @@ class _PickerScaffold extends StatelessWidget {
                 ),
               ),
             ),
+            ?prefix,
             Expanded(
               child: loading
                   ? const Center(child: CircularProgressIndicator())
                   : itemCount == 0
-                  ? const Center(child: Text('Keine Ergebnisse'))
+                  ? const Center(child: Text('No results'))
                   : ListView.builder(
                       itemCount: itemCount,
                       itemBuilder: itemBuilder,

@@ -14,7 +14,8 @@ import '../../theme/theme_creation_screen.dart';
 import 'chat_route_preview.dart';
 
 double _chatBubbleRadius(BuildContext context) => context.uiRadiusLg;
-double _chatBubbleTightRadius(BuildContext context) => context.uiRadiusSm * 0.66;
+double _chatBubbleTightRadius(BuildContext context) =>
+    context.uiRadiusSm * 0.66;
 
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
@@ -30,7 +31,8 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback? onLongPress;
   final void Function(String route) onRouteTap;
   final void Function(DictionaryEntry entry) onDictionaryTap;
-  final Future<ChatRoutePreview?> Function(ChatRouteReference ref) previewFutureFor;
+  final Future<ChatRoutePreview?> Function(ChatRouteReference ref)
+  previewFutureFor;
   final Map<String, DictionaryEntry> dictionaryEntriesByTitle;
 
   const MessageBubble({
@@ -57,25 +59,42 @@ class MessageBubble extends StatelessWidget {
     final isMe = message.isMe;
     final cs = colorScheme;
 
-    final slide = Tween<Offset>(
-      begin: Offset(isMe ? 0.3 : -0.3, 0.1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: animationController, curve: Curves.easeOutCubic));
+    final slide =
+        Tween<Offset>(
+          begin: Offset(isMe ? 0.3 : -0.3, 0.1),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: animationController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
     return SlideMorphTransitions.build(
       animationController,
       SlideTransition(
         position: slide,
         child: Padding(
-          padding: EdgeInsets.only(top: isFirst ? 8 : 2, bottom: isLast ? 6 : 2),
+          padding: EdgeInsets.only(
+            top: isFirst ? 8 : 2,
+            bottom: isLast ? 6 : 2,
+          ),
           child: Row(
-            mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+            mainAxisAlignment: isMe
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (!isMe) ...[
                 SizedBox(
                   width: 32,
                   child: showAvatar
-                      ? MessageAvatarWidget(name: recipientName, imageUrl: recipientAvatarUrl, isOnline: false, radius: 14, colorScheme: cs)
+                      ? MessageAvatarWidget(
+                          name: recipientName,
+                          imageUrl: recipientAvatarUrl,
+                          isOnline: false,
+                          radius: 14,
+                          colorScheme: cs,
+                        )
                       : const SizedBox(),
                 ),
                 const SizedBox(width: 6),
@@ -83,7 +102,9 @@ class MessageBubble extends StatelessWidget {
 
               Flexible(
                 child: Column(
-                  crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  crossAxisAlignment: isMe
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
                   children: [
                     _BubbleBody(
                       message: message,
@@ -99,12 +120,31 @@ class MessageBubble extends StatelessWidget {
                     ),
                     if (showTimestamp || (isMe && isLast))
                       Padding(
-                        padding: const EdgeInsets.only(top: 4, left: 4, right: 4, bottom: 12),
+                        padding: const EdgeInsets.only(
+                          top: 4,
+                          left: 4,
+                          right: 4,
+                          bottom: 12,
+                        ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(_formatTime(message.timestamp), style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant.withValues(alpha: 0.5))),
-                            if (isMe) ...[const SizedBox(width: 3), _StatusIcon(status: message.status, colorScheme: cs)],
+                            Text(
+                              _formatTime(message.timestamp),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                            if (isMe) ...[
+                              const SizedBox(width: 3),
+                              _StatusIcon(
+                                status: message.status,
+                                colorScheme: cs,
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -138,7 +178,8 @@ class _BubbleBody extends StatelessWidget {
   final VoidCallback? onLongPress;
   final void Function(String route) onRouteTap;
   final void Function(DictionaryEntry entry) onDictionaryTap;
-  final Future<ChatRoutePreview?> Function(ChatRouteReference ref) previewFutureFor;
+  final Future<ChatRoutePreview?> Function(ChatRouteReference ref)
+  previewFutureFor;
   final Map<String, DictionaryEntry> dictionaryEntriesByTitle;
 
   const _BubbleBody({
@@ -163,9 +204,19 @@ class _BubbleBody extends StatelessWidget {
 
     BorderRadius borderRadius;
     if (isMe) {
-      borderRadius = BorderRadius.only(topLeft: r, topRight: isFirst ? r : rSmall, bottomLeft: r, bottomRight: isLast ? rSmall : rSmall);
+      borderRadius = BorderRadius.only(
+        topLeft: r,
+        topRight: isFirst ? r : rSmall,
+        bottomLeft: r,
+        bottomRight: isLast ? rSmall : rSmall,
+      );
     } else {
-      borderRadius = BorderRadius.only(topLeft: isFirst ? r : rSmall, topRight: r, bottomLeft: isLast ? rSmall : rSmall, bottomRight: r);
+      borderRadius = BorderRadius.only(
+        topLeft: isFirst ? r : rSmall,
+        topRight: r,
+        bottomLeft: isLast ? rSmall : rSmall,
+        bottomRight: r,
+      );
     }
 
     final hasText = ChatRoutePreviewResolver.hasVisibleText(message.text);
@@ -176,16 +227,24 @@ class _BubbleBody extends StatelessWidget {
         onLongPress?.call();
       },
       child: Column(
-        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isMe
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           if (hasText)
             Container(
               constraints: const BoxConstraints(maxWidth: 280),
-              padding: EdgeInsets.symmetric(horizontal: context.uiSpace(14), vertical: context.uiSpace(10)),
+              padding: EdgeInsets.symmetric(
+                horizontal: context.uiSpace(14),
+                vertical: context.uiSpace(10),
+              ),
               decoration: BoxDecoration(
                 color: isMe ? cs.primary : cs.secondary,
                 borderRadius: borderRadius,
-                border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.45), width: borderWidth),
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: 0.45),
+                  width: borderWidth,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,10 +252,12 @@ class _BubbleBody extends StatelessWidget {
                   _MessageText(
                     text: message.text,
                     textColor: isMe ? cs.onPrimary : cs.onSecondary,
-                    linkColor: isMe ? cs.onPrimary.withValues(alpha: 0.9) : cs.primary,
+                    linkColor: isMe
+                        ? cs.onPrimary.withValues(alpha: 0.9)
+                        : cs.primary,
                     entriesByTitle: dictionaryEntriesByTitle,
                     onDictionaryTap: onDictionaryTap,
-                    onRouteTap: onRouteTap, 
+                    onRouteTap: onRouteTap,
                     textColorCode: isMe ? cs.primary : cs.secondary,
                   ),
                   if (message.isEdited)
@@ -205,7 +266,8 @@ class _BubbleBody extends StatelessWidget {
                       child: Text(
                         'edited',
                         style: TextStyle(
-                          color: (isMe ? cs.onPrimary : cs.onSecondary).withValues(alpha: 0.7),
+                          color: (isMe ? cs.onPrimary : cs.onSecondary)
+                              .withValues(alpha: 0.7),
                           fontSize: 10,
                           fontStyle: FontStyle.italic,
                         ),
@@ -214,10 +276,18 @@ class _BubbleBody extends StatelessWidget {
                 ],
               ),
             ),
-          _RoutePreviewList(messageText: message.text, onRouteTap: onRouteTap, previewFutureFor: previewFutureFor),
+          _RoutePreviewList(
+            messageText: message.text,
+            onRouteTap: onRouteTap,
+            previewFutureFor: previewFutureFor,
+          ),
           if (!hasText && message.isEdited)
             Padding(
-              padding: EdgeInsets.only(top: context.uiSpace(4), right: context.uiSpace(2), left: context.uiSpace(2)),
+              padding: EdgeInsets.only(
+                top: context.uiSpace(4),
+                right: context.uiSpace(2),
+                left: context.uiSpace(2),
+              ),
               child: Text(
                 'edited',
                 style: TextStyle(
@@ -278,7 +348,7 @@ class _MessageText extends StatelessWidget {
     required this.linkColor,
     required this.entriesByTitle,
     required this.onDictionaryTap,
-    required this.onRouteTap, 
+    required this.onRouteTap,
     required this.textColorCode,
   });
 
@@ -316,10 +386,13 @@ class _MessageText extends StatelessWidget {
 
     final sheet = MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
       p: TextStyle(color: textColor, fontSize: 15, height: 1.4),
-      a: TextStyle(color: linkColor, decoration: TextDecoration.underline, decorationColor: linkColor),
-      code: TextStyle(color: textColorCode, fontSize: 11), 
+      a: TextStyle(
+        color: linkColor,
+        decoration: TextDecoration.underline,
+        decorationColor: linkColor,
+      ),
+      code: TextStyle(color: textColorCode, fontSize: 11),
     );
-    
 
     return MarkdownBody(
       data: linkified,
@@ -331,12 +404,20 @@ class _MessageText extends StatelessWidget {
           onRouteTap(raw);
           return;
         }
-        final entry = _entryForSubjectRef(raw, entriesBySubjectTitle, entriesBySubjectId) ?? entriesByRoute[raw];
+        final entry =
+            _entryForSubjectRef(
+              raw,
+              entriesBySubjectTitle,
+              entriesBySubjectId,
+            ) ??
+            entriesByRoute[raw];
         if (entry != null) {
           onDictionaryTap(entry);
           return;
         }
-        final resolved = raw.startsWith('/') ? Uri.base.resolve(raw).toString() : raw;
+        final resolved = raw.startsWith('/')
+            ? Uri.base.resolve(raw).toString()
+            : raw;
         launchUrlString(resolved);
       },
     );
@@ -399,8 +480,12 @@ DictionaryEntry? _entryForSubjectRef(
   if (trimmed.startsWith('/') || trimmed.contains('://')) return null;
   final separatorIndex = trimmed.indexOf(':');
   if (separatorIndex <= 0 || separatorIndex >= trimmed.length - 1) return null;
-  final subject = Uri.decodeComponent(trimmed.substring(0, separatorIndex)).trim().toLowerCase();
-  final rawKey = Uri.decodeComponent(trimmed.substring(separatorIndex + 1)).trim();
+  final subject = Uri.decodeComponent(
+    trimmed.substring(0, separatorIndex),
+  ).trim().toLowerCase();
+  final rawKey = Uri.decodeComponent(
+    trimmed.substring(separatorIndex + 1),
+  ).trim();
   if (subject.isEmpty || rawKey.isEmpty) return null;
 
   final numericId = int.tryParse(rawKey);
@@ -433,7 +518,10 @@ List<TextRange> _collectMarkdownSkipRanges(String data) {
   var current = ranges.first;
   for (final range in ranges.skip(1)) {
     if (range.start <= current.end) {
-      current = TextRange(start: current.start, end: range.end > current.end ? range.end : current.end);
+      current = TextRange(
+        start: current.start,
+        end: range.end > current.end ? range.end : current.end,
+      );
     } else {
       merged.add(current);
       current = range;
@@ -453,9 +541,14 @@ bool _isInSkipRange(int start, int end, List<TextRange> ranges) {
 class _RoutePreviewList extends StatelessWidget {
   final String messageText;
   final void Function(String route) onRouteTap;
-  final Future<ChatRoutePreview?> Function(ChatRouteReference ref) previewFutureFor;
+  final Future<ChatRoutePreview?> Function(ChatRouteReference ref)
+  previewFutureFor;
 
-  const _RoutePreviewList({required this.messageText, required this.onRouteTap, required this.previewFutureFor});
+  const _RoutePreviewList({
+    required this.messageText,
+    required this.onRouteTap,
+    required this.previewFutureFor,
+  });
 
   static double _estimatedPreviewHeight(ChatRouteReference ref) {
     final path = ref.uri.path;
@@ -464,17 +557,28 @@ class _RoutePreviewList extends StatelessWidget {
     return 64;
   }
 
-  static Widget _buildPreviewPlaceholder(BuildContext context, ChatRouteReference ref, {bool isError = false}) {
+  static Widget _buildPreviewPlaceholder(
+    BuildContext context,
+    ChatRouteReference ref, {
+    bool isError = false,
+  }) {
     final cs = Theme.of(context).colorScheme;
     return Container(
       height: _estimatedPreviewHeight(ref),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(context.uiRadiusMd),
-        border: isError ? Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)) : null,
+        border: isError
+            ? Border.all(color: cs.outlineVariant.withValues(alpha: 0.6))
+            : null,
       ),
       alignment: Alignment.center,
-      child: isError ? Text('Preview unavailable', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)) : null,
+      child: isError
+          ? Text(
+              'Preview unavailable',
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+            )
+          : null,
     );
   }
 
@@ -490,22 +594,29 @@ class _RoutePreviewList extends StatelessWidget {
           children: refs
               .map(
                 (ref) => Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: FutureBuilder<ChatRoutePreview?>(
-                future: previewFutureFor(ref),
-                builder: (context, snapshot) {
-                  final preview = snapshot.data;
-                  if (snapshot.connectionState != ConnectionState.done) {
-                    return _buildPreviewPlaceholder(context, ref);
-                  }
-                  if (preview == null) {
-                    return _buildPreviewPlaceholder(context, ref, isError: true);
-                  }
-                  return _RoutePreviewCard(preview: preview, onTap: () => onRouteTap(preview.route));
-                },
-              ),
-            ),
-          )
+                  padding: const EdgeInsets.only(top: 6),
+                  child: FutureBuilder<ChatRoutePreview?>(
+                    future: previewFutureFor(ref),
+                    builder: (context, snapshot) {
+                      final preview = snapshot.data;
+                      if (snapshot.connectionState != ConnectionState.done) {
+                        return _buildPreviewPlaceholder(context, ref);
+                      }
+                      if (preview == null) {
+                        return _buildPreviewPlaceholder(
+                          context,
+                          ref,
+                          isError: true,
+                        );
+                      }
+                      return _RoutePreviewCard(
+                        preview: preview,
+                        onTap: () => onRouteTap(preview.route),
+                      );
+                    },
+                  ),
+                ),
+              )
               .toList(),
         ),
       ),
@@ -529,10 +640,12 @@ class _RoutePreviewCard extends StatelessWidget {
       ChatRoutePreviewType.search => Icons.search_rounded,
       ChatRoutePreviewType.dictionary => Icons.menu_book_outlined,
       ChatRoutePreviewType.themes => Icons.palette_outlined,
+      ChatRoutePreviewType.profile => Icons.person_outline_rounded,
     };
 
     // Special preview for themes with full theme preview widget
-    if (preview.type == ChatRoutePreviewType.themes && preview.themeModel != null) {
+    if (preview.type == ChatRoutePreviewType.themes &&
+        preview.themeModel != null) {
       final theme = preview.themeModel!;
       return InkWell(
         onTap: onTap,
@@ -558,7 +671,8 @@ class _RoutePreviewCard extends StatelessWidget {
       );
     }
 
-    if (preview.type == ChatRoutePreviewType.feed && preview.thumbnailUrl?.isNotEmpty == true) {
+    if (preview.type == ChatRoutePreviewType.feed &&
+        preview.thumbnailUrl?.isNotEmpty == true) {
       return InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(context.uiRadiusMd),
@@ -577,38 +691,78 @@ class _RoutePreviewCard extends StatelessWidget {
                 alignment: Alignment.center,
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.only(topLeft: Radius.circular(context.uiRadiusMd), topRight: Radius.circular(context.uiRadiusMd)),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(context.uiRadiusMd),
+                      topRight: Radius.circular(context.uiRadiusMd),
+                    ),
                     child: CachedNetworkImage(
                       imageUrl: preview.thumbnailUrl!,
                       width: double.infinity,
                       height: 200,
                       fit: BoxFit.cover,
-                      errorWidget: (_, _, _) => Container(width: double.infinity, height: 200, color: cs.surfaceContainerHighest, child: Icon(icon, color: cs.onSurfaceVariant)),
+                      errorWidget: (_, _, _) => Container(
+                        width: double.infinity,
+                        height: 200,
+                        color: cs.surfaceContainerHighest,
+                        child: Icon(icon, color: cs.onSurfaceVariant),
+                      ),
                     ),
                   ),
                   Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.4), shape: BoxShape.circle),
-                    child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 36),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.4),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 36,
+                    ),
                   ),
                 ],
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 child: Row(
                   children: [
-                    if (preview.avatarUrl != null && preview.avatarUrl!.isNotEmpty)
+                    if (preview.avatarUrl != null &&
+                        preview.avatarUrl!.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(right: 10),
-                        child: CircleAvatar(radius: 16, backgroundImage: CachedNetworkImageProvider(preview.avatarUrl!)),
+                        child: CircleAvatar(
+                          radius: 16,
+                          backgroundImage: CachedNetworkImageProvider(
+                            preview.avatarUrl!,
+                          ),
+                        ),
                       ),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(preview.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface)),
+                          Text(
+                            preview.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: cs.onSurface,
+                            ),
+                          ),
                           const SizedBox(height: 2),
-                          Text(preview.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                          Text(
+                            preview.subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -632,16 +786,25 @@ class _RoutePreviewCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            if (preview.thumbnailUrl != null && preview.thumbnailUrl!.isNotEmpty)
+            if (preview.thumbnailUrl != null &&
+                preview.thumbnailUrl!.isNotEmpty)
               ClipRRect(
-                borderRadius: BorderRadius.only(topLeft: Radius.circular(context.uiRadiusMd), bottomLeft: Radius.circular(context.uiRadiusMd)),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(context.uiRadiusMd),
+                  bottomLeft: Radius.circular(context.uiRadiusMd),
+                ),
                 child: CachedNetworkImage(
                   // Stable cached image prevents flashing while list items recycle.
                   imageUrl: preview.thumbnailUrl!,
                   width: 72,
                   height: 64,
                   fit: BoxFit.cover,
-                  errorWidget: (_, _, _) => Container(width: 72, height: 64, color: cs.surfaceContainerHighest, child: Icon(icon, color: cs.onSurfaceVariant)),
+                  errorWidget: (_, _, _) => Container(
+                    width: 72,
+                    height: 64,
+                    color: cs.surfaceContainerHighest,
+                    child: Icon(icon, color: cs.onSurfaceVariant),
+                  ),
                 ),
               )
             else
@@ -650,20 +813,42 @@ class _RoutePreviewCard extends StatelessWidget {
                 height: 64,
                 decoration: BoxDecoration(
                   color: cs.surfaceContainerHighest,
-                  borderRadius: BorderRadius.only(topLeft: Radius.circular(context.uiRadiusMd), bottomLeft: Radius.circular(context.uiRadiusMd)),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(context.uiRadiusMd),
+                    bottomLeft: Radius.circular(context.uiRadiusMd),
+                  ),
                 ),
                 child: Icon(icon, color: cs.onSurfaceVariant),
               ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(preview.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface)),
+                    Text(
+                      preview.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: cs.onSurface,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text(preview.subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                    Text(
+                      preview.subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -671,7 +856,12 @@ class _RoutePreviewCard extends StatelessWidget {
             if (preview.avatarUrl != null && preview.avatarUrl!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(right: 10),
-                child: CircleAvatar(radius: 12, backgroundImage: CachedNetworkImageProvider(preview.avatarUrl!)),
+                child: CircleAvatar(
+                  radius: 12,
+                  backgroundImage: CachedNetworkImageProvider(
+                    preview.avatarUrl!,
+                  ),
+                ),
               ),
           ],
         ),
@@ -690,13 +880,32 @@ class _StatusIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (status) {
       case MessageStatus.sending:
-        return SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4)));
+        return SizedBox(
+          width: 12,
+          height: 12,
+          child: CircularProgressIndicator(
+            strokeWidth: 1.5,
+            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+          ),
+        );
       case MessageStatus.sent:
-        return Icon(Icons.check_rounded, size: 12, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5));
+        return Icon(
+          Icons.check_rounded,
+          size: 12,
+          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+        );
       case MessageStatus.delivered:
-        return Icon(Icons.done_all_rounded, size: 12, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5));
+        return Icon(
+          Icons.done_all_rounded,
+          size: 12,
+          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+        );
       case MessageStatus.read:
-        return Icon(Icons.done_all_rounded, size: 12, color: colorScheme.tertiary);
+        return Icon(
+          Icons.done_all_rounded,
+          size: 12,
+          color: colorScheme.tertiary,
+        );
     }
   }
 }

@@ -5,6 +5,7 @@ import 'package:lumox/logic/local_storage/local_seen_service.dart';
 import 'package:lumox/logic/repositories/video_repository.dart';
 import 'package:lumox/logic/video/video.dart';
 import 'package:lumox/ui/router/deep_link_builder.dart';
+import 'package:lumox/ui/router/router.dart';
 import 'package:lumox/ui/screens/comment_overlay.dart';
 import 'package:lumox/ui/widgets/overlays/pause_indicator.dart';
 import 'package:lumox/ui/widgets/overlays/share_button.dart';
@@ -182,13 +183,7 @@ class _PageOverlayState extends State<PageOverlay> {
 
     await chatRepository.sendNotification(chat: chat, message: message, onUserBanned: () {
       if (context.mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) {
-              return const LoginScreen();
-            },
-          ),
-        );
+        routerConfig.go('/login-force');
       }
     });
     if (!mounted) return;

@@ -11,6 +11,7 @@ import 'package:lumox/logic/users/user_model.dart';
 import 'package:lumox/logic/video/video.dart';
 import 'package:lumox/ui/misc/preloading_list.dart';
 import 'package:lumox/ui/router/deep_link_builder.dart';
+import 'package:lumox/ui/router/router.dart';
 import 'package:lumox/ui/screens/search_screen/search_query.dart';
 import 'package:lumox/ui/screens/search_screen/search_video_overlay.dart';
 import 'package:lumox/ui/screens/search_screen/widgets/animated_search_bar.dart';

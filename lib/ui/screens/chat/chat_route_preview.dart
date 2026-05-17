@@ -16,7 +16,15 @@ class ChatRouteReference {
   String get route => uri.toString();
 }
 
-enum ChatRoutePreviewType { feed, quests, chat, search, themes, dictionary }
+enum ChatRoutePreviewType {
+  feed,
+  quests,
+  chat,
+  search,
+  themes,
+  dictionary,
+  profile,
+}
 
 class ChatRoutePreview {
   final ChatRoutePreviewType type;
@@ -88,51 +96,75 @@ class ChatRoutePreviewResolver {
     return stripped.trim().isNotEmpty;
   }
 
-   static Future<ChatRoutePreview?> resolve(ChatRouteReference routeRef) async {
-     final path = routeRef.uri.path;
-     if (path.startsWith('/feed/')) {
-       return _resolveVideo(routeRef);
-     }
-     if (path == '/quests') {
-       return _resolveQuests(routeRef);
-     }
-     if (path.startsWith('/chat')) {
-       return _resolveChat(routeRef);
-     }
-     if (path == '/search') {
-       return _resolveSearch(routeRef);
-     }
-      if (path == '/dictionary') {
-        return _resolveDictionary(routeRef);
-      }
-     if (path.startsWith('/themes')) {
-       return _resolveThemes(routeRef);
-     }
-     return null;
-   }
+  static Future<ChatRoutePreview?> resolve(ChatRouteReference routeRef) async {
+    final path = routeRef.uri.path;
+    if (path.startsWith('/feed/')) {
+      return _resolveVideo(routeRef);
+    }
+    if (path == '/quests') {
+      return _resolveQuests(routeRef);
+    }
+    if (path.startsWith('/chat')) {
+      return _resolveChat(routeRef);
+    }
+    if (path.startsWith('/u/') || path == '/profile') {
+      return _resolveProfile(routeRef);
+    }
+    if (path == '/search') {
+      return _resolveSearch(routeRef);
+    }
+    if (path == '/dictionary') {
+      return _resolveDictionary(routeRef);
+    }
+    if (path.startsWith('/themes')) {
+      return _resolveThemes(routeRef);
+    }
+    return null;
+  }
 
-   static bool _isSupportedPath(String path) {
-      return path.startsWith('/feed/') || path == '/quests' || path.startsWith('/chat') || path == '/search' || path == '/dictionary' || path.startsWith('/themes');
-   }
+  static bool _isSupportedPath(String path) {
+    return path.startsWith('/feed/') ||
+        path == '/quests' ||
+        path.startsWith('/chat') ||
+        path.startsWith('/u/') ||
+        path == '/profile' ||
+        path == '/search' ||
+        path == '/dictionary' ||
+        path.startsWith('/themes');
+  }
 
-  static Future<ChatRoutePreview?> _resolveVideo(ChatRouteReference routeRef) async {
-    final videoId = routeRef.uri.pathSegments.length >= 2 ? routeRef.uri.pathSegments[1] : '';
+  static Future<ChatRoutePreview?> _resolveVideo(
+    ChatRouteReference routeRef,
+  ) async {
+    final videoId = routeRef.uri.pathSegments.length >= 2
+        ? routeRef.uri.pathSegments[1]
+        : '';
     if (videoId.isEmpty) return null;
 
     final Video? video = await videoRepo.getVideoByIdSupabase(videoId);
     if (video == null) return null;
-    final UserProfile? author = await userRepository.getUserSupabase(video.authorId);
+    final UserProfile? author = await userRepository.getUserSupabase(
+      video.authorId,
+    );
     return ChatRoutePreview(
       type: ChatRoutePreviewType.feed,
       title: video.title.isEmpty ? 'Untitled video' : video.title,
-      subtitle: author == null ? 'by ${video.authorName}' : 'by ${author.displayName}',
+      subtitle: author == null
+          ? 'by ${video.authorName}'
+          : 'by ${author.displayName}',
       route: routeRef.route,
       thumbnailUrl: video.thumbnailUrl,
       avatarUrl: author?.profileImageUrl,
     );
   }
 
-  static Future<ChatRoutePreview?> _resolveQuests(ChatRouteReference routeRef) async {
+  static Future<ChatRoutePreview?> _resolveQuests(
+    ChatRouteReference routeRef,
+  ) async {
+    final subjectQuery = routeRef.uri.queryParameters['subject']?.trim();
+    final selectedSubject = (subjectQuery == null || subjectQuery.isEmpty)
+        ? 'General'
+        : subjectQuery;
     final focus = routeRef.uri.queryParameters['focus'];
     final ids = (focus == null ? const <String>[] : focus.split(','))
         .map((id) => int.tryParse(id.trim()))
@@ -142,8 +174,12 @@ class ChatRoutePreviewResolver {
     if (ids.isEmpty) {
       return ChatRoutePreview(
         type: ChatRoutePreviewType.quests,
-        title: 'Quest board',
-        subtitle: 'Open quests map',
+        title: selectedSubject == 'General'
+            ? 'Quest board'
+            : '$selectedSubject quests',
+        subtitle: selectedSubject == 'General'
+            ? 'Open quests map'
+            : 'Open $selectedSubject quests map',
         route: routeRef.route,
       );
     }
@@ -158,8 +194,12 @@ class ChatRoutePreviewResolver {
         .map((row) => (row['title'] as String?)?.trim() ?? '')
         .where((title) => title.isNotEmpty)
         .toList();
-    final subject = rows.isNotEmpty ? (rows.first['subject'] as String? ?? 'General') : 'General';
-    final subtitle = titles.isEmpty ? '${ids.length} focused quests in $subject' : '${titles.join(', ')}${ids.length > titles.length ? '...' : ''}';
+    final subject = rows.isNotEmpty
+        ? (rows.first['subject'] as String? ?? selectedSubject)
+        : selectedSubject;
+    final subtitle = titles.isEmpty
+        ? '${ids.length} focused quests in $subject'
+        : '${titles.join(', ')}${ids.length > titles.length ? '...' : ''}';
 
     return ChatRoutePreview(
       type: ChatRoutePreviewType.quests,
@@ -169,7 +209,9 @@ class ChatRoutePreviewResolver {
     );
   }
 
-  static Future<ChatRoutePreview?> _resolveChat(ChatRouteReference routeRef) async {
+  static Future<ChatRoutePreview?> _resolveChat(
+    ChatRouteReference routeRef,
+  ) async {
     String? partnerId;
     if (routeRef.uri.pathSegments.length >= 2) {
       partnerId = routeRef.uri.pathSegments[1];
@@ -204,7 +246,48 @@ class ChatRoutePreviewResolver {
     );
   }
 
-  static Future<ChatRoutePreview?> _resolveSearch(ChatRouteReference routeRef) async {
+  static Future<ChatRoutePreview?> _resolveProfile(
+    ChatRouteReference routeRef,
+  ) async {
+    String? profileId;
+    if (routeRef.uri.path.startsWith('/u/') &&
+        routeRef.uri.pathSegments.length >= 2) {
+      profileId = routeRef.uri.pathSegments[1].trim();
+    } else if (routeRef.uri.path == '/profile') {
+      profileId = currentUser.id;
+    }
+
+    if (profileId == null || profileId.isEmpty) {
+      return ChatRoutePreview(
+        type: ChatRoutePreviewType.profile,
+        title: 'Profile',
+        subtitle: 'Open profile',
+        route: routeRef.route,
+      );
+    }
+
+    final profile = await userRepository.getUserSupabase(profileId);
+    if (profile == null) {
+      return ChatRoutePreview(
+        type: ChatRoutePreviewType.profile,
+        title: 'Profile',
+        subtitle: 'Open profile',
+        route: routeRef.route,
+      );
+    }
+
+    return ChatRoutePreview(
+      type: ChatRoutePreviewType.profile,
+      title: profile.displayName,
+      subtitle: '@${profile.username}',
+      route: routeRef.route,
+      avatarUrl: profile.profileImageUrl,
+    );
+  }
+
+  static Future<ChatRoutePreview?> _resolveSearch(
+    ChatRouteReference routeRef,
+  ) async {
     final query = routeRef.uri.queryParameters['q']?.trim() ?? '';
     if (query.isEmpty) {
       return const ChatRoutePreview(
@@ -228,8 +311,8 @@ class ChatRoutePreviewResolver {
     final subtitle = scope == 'videos'
         ? '$videos video results'
         : scope == 'profiles'
-            ? '$users creator results'
-            : '${videos + users} total results ($videos videos, $users creators)';
+        ? '$users creator results'
+        : '${videos + users} total results ($videos videos, $users creators)';
 
     return ChatRoutePreview(
       type: ChatRoutePreviewType.search,
@@ -239,7 +322,9 @@ class ChatRoutePreviewResolver {
     );
   }
 
-  static Future<ChatRoutePreview?> _resolveDictionary(ChatRouteReference routeRef) async {
+  static Future<ChatRoutePreview?> _resolveDictionary(
+    ChatRouteReference routeRef,
+  ) async {
     final subject = routeRef.uri.queryParameters['subject']?.trim();
     final id = int.tryParse(routeRef.uri.queryParameters['id'] ?? '');
 
@@ -249,20 +334,27 @@ class ChatRoutePreviewResolver {
         return ChatRoutePreview(
           type: ChatRoutePreviewType.dictionary,
           title: 'Dictionary',
-          subtitle: subject == null || subject.isEmpty ? 'Open the dictionary' : 'Open $subject dictionary',
+          subtitle: subject == null || subject.isEmpty
+              ? 'Open the dictionary'
+              : 'Open $subject dictionary',
           route: routeRef.route,
         );
       }
 
       return ChatRoutePreview(
         type: ChatRoutePreviewType.dictionary,
-        title: subject == null || subject.isEmpty ? 'Dictionary' : '$subject dictionary',
+        title: subject == null || subject.isEmpty
+            ? 'Dictionary'
+            : '$subject dictionary',
         subtitle: '${entries.length} entries available',
         route: routeRef.route,
       );
     }
 
-    final entry = await dictionaryRepository.fetchEntryById(questId: id, subject: subject);
+    final entry = await dictionaryRepository.fetchEntryById(
+      questId: id,
+      subject: subject,
+    );
     if (entry == null) {
       return ChatRoutePreview(
         type: ChatRoutePreviewType.dictionary,
@@ -280,59 +372,72 @@ class ChatRoutePreviewResolver {
     );
   }
 
-    static Future<ChatRoutePreview?> _resolveThemes(ChatRouteReference routeRef) async {
-      final pathSegments = routeRef.uri.pathSegments;
-      if (pathSegments.length >= 2 && pathSegments[0] == 'themes' && pathSegments[1].isNotEmpty) {
-        final themeId = pathSegments[1];
-        try {
-          final row = await supabaseClient.from('themes').select().eq('id', themeId).maybeSingle();
-          if (row != null) {
-            final themeName = (row['name'] as String?)?.trim() ?? 'Untitled Theme';
-            final createdBy = row['created_by'] as String?;
-            String creatorLabel = 'by Unknown';
-            
-            if (createdBy != null && createdBy.isNotEmpty) {
-              try {
-                final creatorRow = await supabaseClient.from('profiles').select('display_name, username').eq('id', createdBy).maybeSingle();
-                if (creatorRow != null) {
-                  final displayName = (creatorRow['display_name'] as String?)?.trim();
-                  final username = (creatorRow['username'] as String?)?.trim();
-                  creatorLabel = (displayName != null && displayName.isNotEmpty) 
-                      ? 'by $displayName'
-                      : (username != null && username.isNotEmpty)
-                          ? 'by @$username'
-                          : 'by ${createdBy.substring(0, 6)}...';
-                }
-              } catch (_) {
-                creatorLabel = 'by ${createdBy.substring(0, 6)}...';
-              }
-            }
-            
-            // Create the full theme model for preview
-            final themeModel = CustomThemeModel.fromJson(row);
-            
-            return ChatRoutePreview(
-              type: ChatRoutePreviewType.themes,
-              title: themeName,
-              subtitle: creatorLabel,
-              route: routeRef.route,
-              themeModel: themeModel,
-            );
-          }
-        } catch (_) {
-          // If fetch fails, fall through to default
-        }
-      }
-      
-      // Default theme preview when no specific theme ID or fetch failed
-      final tab = routeRef.uri.queryParameters['tab'];
-      final tabLabel = tab == 'own' ? 'My themes' : 'Community themes';
-      return ChatRoutePreview(
-        type: ChatRoutePreviewType.themes,
-        title: 'Themes',
-        subtitle: tabLabel,
-        route: routeRef.route,
-      );
-    }
-}
+  static Future<ChatRoutePreview?> _resolveThemes(
+    ChatRouteReference routeRef,
+  ) async {
+    final pathSegments = routeRef.uri.pathSegments;
+    if (pathSegments.length >= 2 &&
+        pathSegments[0] == 'themes' &&
+        pathSegments[1].isNotEmpty) {
+      final themeId = pathSegments[1];
+      try {
+        final row = await supabaseClient
+            .from('themes')
+            .select()
+            .eq('id', themeId)
+            .maybeSingle();
+        if (row != null) {
+          final themeName =
+              (row['name'] as String?)?.trim() ?? 'Untitled Theme';
+          final createdBy = row['created_by'] as String?;
+          String creatorLabel = 'by Unknown';
 
+          if (createdBy != null && createdBy.isNotEmpty) {
+            try {
+              final creatorRow = await supabaseClient
+                  .from('profiles')
+                  .select('display_name, username')
+                  .eq('id', createdBy)
+                  .maybeSingle();
+              if (creatorRow != null) {
+                final displayName = (creatorRow['display_name'] as String?)
+                    ?.trim();
+                final username = (creatorRow['username'] as String?)?.trim();
+                creatorLabel = (displayName != null && displayName.isNotEmpty)
+                    ? 'by $displayName'
+                    : (username != null && username.isNotEmpty)
+                    ? 'by @$username'
+                    : 'by ${createdBy.substring(0, 6)}...';
+              }
+            } catch (_) {
+              creatorLabel = 'by ${createdBy.substring(0, 6)}...';
+            }
+          }
+
+          // Create the full theme model for preview
+          final themeModel = CustomThemeModel.fromJson(row);
+
+          return ChatRoutePreview(
+            type: ChatRoutePreviewType.themes,
+            title: themeName,
+            subtitle: creatorLabel,
+            route: routeRef.route,
+            themeModel: themeModel,
+          );
+        }
+      } catch (_) {
+        // If fetch fails, fall through to default
+      }
+    }
+
+    // Default theme preview when no specific theme ID or fetch failed
+    final tab = routeRef.uri.queryParameters['tab'];
+    final tabLabel = tab == 'own' ? 'My themes' : 'Community themes';
+    return ChatRoutePreview(
+      type: ChatRoutePreviewType.themes,
+      title: 'Themes',
+      subtitle: tabLabel,
+      route: routeRef.route,
+    );
+  }
+}

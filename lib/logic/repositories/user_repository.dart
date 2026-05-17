@@ -202,37 +202,6 @@ class UserRepository {
     return followed;
   }
 
-  /// Follow a user
-  Future<void> followUserSupabase(String currentId, String followingId) async {
-    if (currentId == followingId) throw Exception('Cannot follow yourself');
-
-    bool alreadyFollowing = await isFollowingSupabase(currentId, followingId);
-    if (alreadyFollowing) {
-      print("already following! returning");
-      return;
-    }
-
-    await _followUserSupabase(currentId, followingId);
-  }
-
-  /// Follow a user
-  /// Unfollow a user
-  void unfollowUser(String currentId, String followingId) async {
-    _unfollowUserSupabase(currentId, followingId);
-  }
-
-  void _unfollowUserSupabase(String currentId, String followingId) async {
-    await supabaseClient.from('follows').delete().eq('follower_id', currentId).eq('following_id', followingId);
-    await _adjustProfileMetric(currentId, 'following_count', -1);
-    await _adjustProfileMetric(followingId, 'followers_count', -1);
-  }
-
-  Future<void> _followUserSupabase(String currentId, String followingId) async {
-    await supabaseClient.from('follows').insert({"follower_id": currentId, "following_id": followingId, "created_at": DateTime.now().toIso8601String()});
-    await _adjustProfileMetric(currentId, 'following_count', 1);
-    await _adjustProfileMetric(followingId, 'followers_count', 1);
-  }
-
   Future<({List<UserProfile> users, int? nextOffset})> searchUsers(String query, {int limit = 20, int offset = 0}) async {
     final users = (await searchUsersSupabase(query, limit: limit, offset: offset)).toList();
     return (users: users, nextOffset: users.length < limit ? null : offset + users.length);
@@ -766,10 +735,6 @@ class UserRepository {
     } catch (_) {}
   }
 
-  Future<void> _adjustProfileMetric(String userId, String column, int delta) async {
-    await supabaseClient.rpc('increment_profile_metric', params: {'p_user_id': userId, 'p_column': column, 'p_delta': delta});
-  }
-
   bool _currentlySelfBanning = false;
 
   Future<void> selfBanUserSupabase() async {
@@ -786,6 +751,87 @@ class UserRepository {
     await supabaseClient.rpc('appeal_ban', params: {'p_user_id': id, 'p_appeal_message': reason});
     await const Duration(seconds: 3).future;
   }
+
+
+  //'DECLARE v_conversation_id bigint; v_user_id uuid; v_receiver_is_bot bool; v_receiver_has_ai_bot_entry bool; BEGIN v_user_id := auth.uid(); SELECT EXISTS(SELECT 1 FROM profiles where id = p_receiver_id AND is_bot = true) INTO v_receiver_is_bot; IF v_receiver_is_bot THEN SELECT EXISTS(SELECT 1 FROM ai_bots where user_id = p_receiver_id) INTO v_receiver_has_ai_bot_entry; IF NOT v_receiver_has_ai_bot_entry THEN INSERT INTO ai_bots (user_id, system_prompt) (p_receiver_id, ''you are a helpful assistant called Michael. you do a lot of jokes about your bald head.'') END IF; END IF; INSERT INTO public.conversations (type, created_by, title) VALUES (p_type, v_user_id, p_title) RETURNING id INTO v_conversation_id; INSERT INTO public.conversation_members (conversation_id, profile_id, role) VALUES (v_conversation_id, v_user_id, ''admin''); IF p_receiver_id IS NOT NULL THEN INSERT INTO public.conversation_members (conversation_id, profile_id, role) VALUES (v_conversation_id, p_receiver_id, ''member''); END IF; RETURN v_conversation_id; END;'
+  
+  //
+  //DECLARE 
+  //   v_conversation_id bigint; 
+  //   v_user_id uuid; 
+  //   v_receiver_is_bot bool; 
+  //   v_receiver_has_ai_bot_entry bool; 
+  // 
+  // BEGIN 
+  //   v_user_id := auth.uid();
+  //   
+  //   SELECT 
+  //     EXISTS(SELECT 1 FROM profiles where id = p_receiver_id AND is_bot = true) 
+  //   INTO v_receiver_is_bot; 
+  //   
+  //   IF v_receiver_is_bot THEN
+  //     SELECT 
+  //       EXISTS(SELECT 1 FROM ai_bots where user_id = p_receiver_id) 
+  //     INTO v_receiver_has_ai_bot_entry; 
+  //     
+  //     IF NOT v_receiver_has_ai_bot_entry THEN
+  //       INSERT INTO ai_bots (user_id, system_prompt) (p_receiver_id, 'you are a helpful assistant called Michael. you do a lot of jokes about your bald head.');
+  //     END IF;
+  //   END IF; 
+  //   
+  //   INSERT INTO public.conversations (type, created_by, title) 
+  //     VALUES (p_type, v_user_id, p_title) 
+  //   RETURNING id INTO v_conversation_id; 
+  //   
+  //   INSERT INTO public.conversation_members (conversation_id, profile_id, role) 
+  //     VALUES (v_conversation_id, v_user_id, ''admin''); 
+  //   
+  //   IF p_receiver_id IS NOT NULL THEN 
+  //     INSERT INTO public.conversation_members (conversation_id, profile_id, role) 
+  //       VALUES (v_conversation_id, p_receiver_id, ''member''); 
+  //   END IF; 
+  //   
+  //   RETURN v_conversation_id; 
+  //   
+  // END;
+  // DECLARE 
+  //   v_conversation_id bigint; 
+  //   v_user_id uuid; 
+  //   v_receiver_is_bot bool; 
+  //   v_receiver_has_ai_bot_entry bool; 
+  // 
+  // BEGIN 
+  //   v_user_id := auth.uid();
+  //   
+  //   SELECT 
+  //     EXISTS(SELECT 1 FROM profiles where id = p_receiver_id AND is_bot = true) 
+  //   INTO v_receiver_is_bot; 
+  //   
+  //   IF v_receiver_is_bot THEN
+  //     SELECT 
+  //       EXISTS(SELECT 1 FROM ai_bots where user_id = p_receiver_id) 
+  //     INTO v_receiver_has_ai_bot_entry; 
+  //     
+  //     IF NOT v_receiver_has_ai_bot_entry THEN
+  //       INSERT INTO ai_bots (user_id, system_prompt) VALUES (p_receiver_id, 'you are a helpful assistant called Michael. you do a lot of jokes about your bald head.');
+  //     END IF;
+  //   END IF; 
+  //   
+  //   INSERT INTO public.conversations (type, created_by, title) VALUES (p_type, v_user_id, p_title) 
+  //   RETURNING id INTO v_conversation_id; 
+  //   
+  //   INSERT INTO public.conversation_members (conversation_id, profile_id, role) 
+  //     VALUES (v_conversation_id, v_user_id, 'admin'); 
+  //   
+  //   IF p_receiver_id IS NOT NULL THEN 
+  //     INSERT INTO public.conversation_members (conversation_id, profile_id, role) 
+  //       VALUES (v_conversation_id, p_receiver_id, 'member'); 
+  //   END IF; 
+  //   
+  //   RETURN v_conversation_id; 
+  //   
+  // END;
+  
   
   Future<bool> isProUser(String userId) async {
     try {

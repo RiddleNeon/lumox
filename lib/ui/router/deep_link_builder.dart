@@ -11,7 +11,10 @@ class DeepLinkBuilder {
       if (scope != DeepLinkSearchScope.all) 'scope': scope.value,
       if (mode != DeepLinkSearchMode.text) 'mode': mode.value,
     };
-    return Uri(path: '/search', queryParameters: params.isEmpty ? null : params).toString();
+    return Uri(
+      path: '/search',
+      queryParameters: params.isEmpty ? null : params,
+    ).toString();
   }
 
   static String feed({String? videoId}) {
@@ -24,32 +27,63 @@ class DeepLinkBuilder {
     return '/chat/${partnerId.trim()}';
   }
 
-  static String quests({List<int>? focusIds, bool zoomOutIfNeeded = true}) {
-    final focus = (focusIds ?? const <int>[]).where((id) => id > 0).toSet().toList();
+  static String quests({List<int>? focusIds, String? subject}) {
+    final focus = (focusIds ?? const <int>[])
+        .where((id) => id > 0)
+        .toSet()
+        .toList();
+    final normalizedSubject = subject?.trim();
     final params = <String, String>{
       if (focus.isNotEmpty) 'focus': focus.join(','),
-      if (!zoomOutIfNeeded) 'zoom': 'in',
+      if (normalizedSubject != null && normalizedSubject.isNotEmpty)
+        'subject': normalizedSubject,
     };
-    return Uri(path: '/quests', queryParameters: params.isEmpty ? null : params).toString();
+    return Uri(
+      path: '/quests',
+      queryParameters: params.isEmpty ? null : params,
+    ).toString();
   }
 
-  static String profile(String userId, {DeepLinkProfileTab tab = DeepLinkProfileTab.videos}) {
+  static String profile(
+    String userId, {
+    DeepLinkProfileTab tab = DeepLinkProfileTab.videos,
+  }) {
     final normalizedId = userId.trim();
-    final params = <String, String>{if (tab != DeepLinkProfileTab.videos) 'tab': tab.value};
-    return Uri(path: '/u/$normalizedId', queryParameters: params.isEmpty ? null : params).toString();
+    final params = <String, String>{
+      if (tab != DeepLinkProfileTab.videos) 'tab': tab.value,
+    };
+    return Uri(
+      path: '/u/$normalizedId',
+      queryParameters: params.isEmpty ? null : params,
+    ).toString();
   }
 
-  static String ownProfile({DeepLinkProfileTab tab = DeepLinkProfileTab.videos}) {
-    final params = <String, String>{if (tab != DeepLinkProfileTab.videos) 'tab': tab.value};
-    return Uri(path: '/profile', queryParameters: params.isEmpty ? null : params).toString();
+  static String ownProfile({
+    DeepLinkProfileTab tab = DeepLinkProfileTab.videos,
+  }) {
+    final params = <String, String>{
+      if (tab != DeepLinkProfileTab.videos) 'tab': tab.value,
+    };
+    return Uri(
+      path: '/profile',
+      queryParameters: params.isEmpty ? null : params,
+    ).toString();
   }
 
-  static String themes({String? themeId, DeepLinkThemeTab tab = DeepLinkThemeTab.community}) {
+  static String themes({
+    String? themeId,
+    DeepLinkThemeTab tab = DeepLinkThemeTab.community,
+  }) {
     if (themeId != null && themeId.trim().isNotEmpty) {
       return '/themes/${themeId.trim()}';
     }
-    final params = <String, String>{if (tab != DeepLinkThemeTab.community) 'tab': tab.value};
-    return Uri(path: '/themes', queryParameters: params.isEmpty ? null : params).toString();
+    final params = <String, String>{
+      if (tab != DeepLinkThemeTab.community) 'tab': tab.value,
+    };
+    return Uri(
+      path: '/themes',
+      queryParameters: params.isEmpty ? null : params,
+    ).toString();
   }
 
   static String logout() => '/logout';

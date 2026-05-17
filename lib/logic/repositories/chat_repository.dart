@@ -279,6 +279,41 @@ class ChatRepository {
     _inFlightChatPages[cacheKey] = fetch;
     return _cloneChatPage(await fetch);
   }
+  
+  Future<Chat> getChat(int conversationId, String otherUserId, {String partnerName = '', String partnerProfileImageUrl = '', bool? partnerIsAi, String? conversationType}) async {
+    final chat = localSeenService.getChatWith(otherUserId);
+    if (chat != null) {
+      print("found in cache");
+      return _cloneChat(chat);
+    }
+    
+    final serverResult = await supabaseClient.from('conversations').select('type').eq('id', conversationId).maybeSingle();
+    print("Queried conversation $conversationId from server, result: $serverResult");
+    
+    
+    final conversation = serverResult as Map<String, dynamic>?;
+    if (conversation == null) {
+      throw Exception("No conversation found with id $conversationId");
+    }
+    final conversationTypeFromServer = conversation['type'] as String? ?? 'direct';
+    final partnerIsAiFromServer = conversationTypeFromServer == 'direct-ai';
+    print("conversation type from server: $conversationTypeFromServer, partnerIsAiFromServer: $partnerIsAiFromServer");
+    final newChat = Chat(
+      conversationId: conversationId,
+      partnerId: otherUserId,
+      partnerProfileImageUrl: partnerProfileImageUrl,
+      partnerName: partnerName,
+      lastMessage: '',
+      lastMessageAt: null,
+      lastMessageByMe: false,
+      createdAt: DateTime.now(),
+      partnerIsAi: partnerIsAi ?? partnerIsAiFromServer,
+      conversationType: conversationType ?? conversationTypeFromServer,
+    );
+    localSeenService.saveChatsLocal([newChat]);
+    
+    return newChat;
+  }
 
   Future<({int? newCurrent, List<Chat> result})> _getChatsFromLocalWithIncrementalSync(String userId, {int limit = 10, int offset = 0}) async {
     await _syncConversationsIncrementalIfNeeded();
@@ -362,34 +397,14 @@ class ChatRepository {
 
     print("No existing conversation found with $receiverId, creating a new one. currentUser: ${currentUser.id}");
 
-    final isProUser = await supabaseClient.rpc('is_pro', params: {'p_user_id': currentUser.id}) as bool;
-    print("Current user is ${isProUser ? 'a Pro user' : 'not a Pro user'}");
-    final partnerIsAi = isProUser && await supabaseClient.from('ai_bots').select().eq('user_id', receiverId).maybeSingle() != null;
-    print("Partner with ID $receiverId is ${partnerIsAi ? 'an AI bot' : 'a regular user'}");
-    final conversationType = partnerIsAi ? 'direct-ai' : 'direct';
-
     final conversationId = await supabaseClient.rpc(
       'create_conversation',
-      params: {'p_receiver_id': receiverId, 'p_title': null, 'p_type': conversationType},
+      params: {'p_receiver_id': receiverId, 'p_title': null, 'p_type': null},
     ) as int;
-    print("Created conversation $conversationId with $receiverId (partnerIsAi: $partnerIsAi)");
+    print("Created conversation $conversationId with $receiverId");
 
-    final now = DateTime.now();
-
-    await localSeenService.saveChatsLocal([
-      Chat(
-        conversationId: conversationId,
-        partnerId: receiverId,
-        partnerProfileImageUrl: partnerProfileImageUrl,
-        partnerName: partnerName,
-        lastMessage: '',
-        lastMessageAt: now,
-        lastMessageByMe: false,
-        createdAt: now,
-        partnerIsAi: partnerIsAi,
-        conversationType: conversationType,
-      ),
-    ]);
+    await getChat(conversationId, receiverId, partnerName: partnerName, partnerProfileImageUrl: partnerProfileImageUrl);
+    print("got chat");
     _conversationIdCache[receiverId] = _CachedConversationId(conversationId);
     _invalidateChatPagesForUser(currentUser.id);
 

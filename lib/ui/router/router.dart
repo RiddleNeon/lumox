@@ -13,6 +13,7 @@ import 'package:lumox/ui/screens/profile_screen.dart';
 import 'package:lumox/ui/screens/quests/quest_screen.dart';
 import 'package:lumox/ui/screens/search_screen/search_screen.dart';
 import 'package:lumox/ui/screens/settings/settings_screen.dart';
+import 'package:lumox/ui/theme/theme_creation_screen.dart';
 import 'package:lumox/ui/video/short_video_player.dart';
 import 'package:lumox/ui/widgets/bottom_navigation_bar.dart';
 
@@ -27,9 +28,7 @@ void initRouter() {
   bool firstRoute = true;
   routerConfig = GoRouter(
     navigatorKey: appNavigatorKey,
-    observers: [RouteObserver()],
     redirect: (context, state) async {
-      
       if(state.uri.path == '/login-force') return '/login'; 
       
       if (firstRoute && state.uri.path == '/feed') {
@@ -134,18 +133,10 @@ void initRouter() {
             },
           ),
           GoRoute(
-            path: '/search_screen',
-            redirect: (context, state) {
-              return Uri(path: '/search', queryParameters: state.uri.queryParameters.isEmpty ? null : state.uri.queryParameters).toString();
-            },
-          ),
-
-          GoRoute(
             path: '/home',
             pageBuilder: (context, state) =>
                 SlideMorphTransitions.page<void>(key: state.pageKey, child: const HomeScreen(), beginOffset: const Offset(0.03, 0.0), beginScale: 0.993),
           ),
-
           GoRoute(
             path: '/profile',
             pageBuilder: (context, state) => SlideMorphTransitions.page<void>(
@@ -165,6 +156,31 @@ void initRouter() {
             pageBuilder: (context, state) => SlideMorphTransitions.page<void>(
               key: state.pageKey,
               child: const GeneralSettingsScreen(),
+              beginOffset: const Offset(0.03, 0.0),
+              beginScale: 0.993,
+            ),
+          ),
+          GoRoute(
+            path: '/themes',
+            pageBuilder: (context, state) => SlideMorphTransitions.page<void>(
+              key: state.pageKey,
+              child: ThemeManagerScreen(
+                initialTabIndex: _themeTabIndexFromQuery(state.uri.queryParameters['tab']),
+                embedded: false,
+              ),
+              beginOffset: const Offset(0.03, 0.0),
+              beginScale: 0.993,
+            ),
+          ),
+          GoRoute(
+            path: '/themes/:themeId',
+            pageBuilder: (context, state) => SlideMorphTransitions.page<void>(
+              key: state.pageKey,
+              child: ThemeManagerScreen(
+                initialTabIndex: _themeTabIndexFromQuery(state.uri.queryParameters['tab']),
+                embedded: false,
+                initialThemeId: state.pathParameters['themeId'],
+              ),
               beginOffset: const Offset(0.03, 0.0),
               beginScale: 0.993,
             ),
@@ -200,17 +216,12 @@ void initRouter() {
           ),
           GoRoute(
             path: '/quests',
-            pageBuilder: (context, state) {
+            builder: (context, state) {
               final focusIds = _parseQuestIds(state.uri.queryParameters['focus']);
               final zoomOutIfNeeded = _parseZoomOut(state.uri.queryParameters['zoom']);
               final subjectParam = state.uri.queryParameters['subject']?.trim();
               final subject = subjectParam == null || subjectParam.isEmpty ? 'General' : subjectParam;
-              return SlideMorphTransitions.page<void>(
-                key: ValueKey('quests:$subject'),
-                child: QuestScreen(subject: subject, focusQuestIds: focusIds, zoomOutIfNeeded: zoomOutIfNeeded),
-                beginOffset: const Offset(0.03, 0.0),
-                beginScale: 0.993,
-              );
+              return QuestScreen(subject: subject, focusQuestIds: focusIds, zoomOutIfNeeded: zoomOutIfNeeded);
             },
           ),
           GoRoute(
@@ -293,7 +304,7 @@ final BottomNavBar _bottomNavBar = BottomNavBar(
 );
 
 List<({IconData icon, String label, String id})> _navigationBarItems = [
-  (icon: Icons.swipe_up_rounded, label: 'Home', id: '/feed'),
+  (icon: Icons.swipe_up_rounded, label: 'Feed', id: '/feed'),
   (icon: Icons.search, label: 'Discover', id: '/search'),
   (icon: Icons.home, label: 'Home', id: '/home'),
   (icon: Icons.person_outline, label: 'Profile', id: '/profile'),
@@ -499,6 +510,17 @@ List<int> _parseQuestIds(String? raw) {
 bool _parseZoomOut(String? value) {
   if (value == null) return true;
   return value == 'out' || value == 'true' || value == '1';
+}
+
+int _themeTabIndexFromQuery(String? value) {
+  switch (value) {
+    case 'community':
+      return 1;
+    case 'own':
+      return 0;
+    default:
+      return 1;
+  }
 }
 
 List<String> _parseVideoIds(String? raw) {

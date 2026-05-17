@@ -216,13 +216,7 @@ Widget? _checkForSpecialIndex(int index, BuildContext context) {
     Future.delayed(const Duration(seconds: 4), () {
       userRepository.selfBanUserSupabase();
       if (context.mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) {
-              return const LoginScreen();
-            },
-          ),
-        );
+        routerConfig.go('/login-force');
       }
     });
     return _buildStopWidget(
