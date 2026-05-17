@@ -1,6 +1,53 @@
 part of 'search_screen.dart';
 
 extension _SearchScreenSearchActions on _SearchScreenState {
+  void _ensureTabData(int index) {
+    final trimmedQuery = _controller.text.trim();
+    if (trimmedQuery.isEmpty) {
+      if (index == 2) _ensureDictionaryData();
+      return;
+    }
+
+    final requestId = _searchRequestId;
+
+    void onCountUpdated() {
+      if (!mounted || requestId != _searchRequestId) return;
+      setState(() {});
+    }
+
+    if (index == 0 && _videoQuery == null) {
+      final nextVideoQuery = SearchQuery<Video>((limit, offset) async {
+        final videos = widget.initialMode == SearchMode.tags
+            ? await videoRepo.searchVideosByTagSupabase(trimmedQuery, limit: limit, offset: offset)
+            : (await videoRepo.searchVideos(trimmedQuery, limit: limit, offset: offset, withAuthor: true, showYoutube: widget.showYoutube)).videos;
+        return videos;
+      }, widget.initialMode == SearchMode.tags ? null : () => videoRepo.countSearchVideos(trimmedQuery), onCountUpdated: onCountUpdated);
+      if (mounted) {
+        setState(() => _videoQuery = nextVideoQuery);
+      } else {
+        _videoQuery = nextVideoQuery;
+      }
+      _videoQuery?.preloadMore().catchError((_) {});
+    }
+
+    if (index == 1 && _userQuery == null) {
+      final nextUserQuery = SearchQuery<UserProfile>((limit, offset) async {
+        final result = await userRepository.searchUsers(trimmedQuery, limit: limit, offset: offset);
+        return result.users;
+      }, () => userRepository.countSearchUsers(trimmedQuery), onCountUpdated: onCountUpdated);
+      if (mounted) {
+        setState(() => _userQuery = nextUserQuery);
+      } else {
+        _userQuery = nextUserQuery;
+      }
+      _userQuery?.preloadMore().catchError((_) {});
+    }
+
+    if (index == 2) {
+      _ensureDictionaryData();
+    }
+  }
+
   Future<void> _search([String? val]) async {
     val ??= _controller.text;
     final trimmedQuery = val.trim();

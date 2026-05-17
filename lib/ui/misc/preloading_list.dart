@@ -29,11 +29,14 @@ class _PreloadingListState<T> extends State<PreloadingList<T>> {
   bool _preloading = false;
   bool _preloadingGuard = false;
   int _currentLoadedCount = 0;
+  
+  final DateTime _queryInitTime = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController()..addListener(_onScroll);
+    print("PreloadingList initialized with query: ${widget.query}");
   }
 
   @override
@@ -47,6 +50,8 @@ class _PreloadingListState<T> extends State<PreloadingList<T>> {
 
   Future<void> _init() async {
     if (widget.query.isCompleted) {
+      print("Query already completed with results: ${widget.query.results.length}");
+      print("Query init time: ${DateTime.now().difference(_queryInitTime)}");
       setState(() => _currentLoadedCount = widget.query.results.length);
       return;
     }

@@ -48,6 +48,8 @@ class SearchDictionaryTab extends StatelessWidget {
     final hasQuery = query.isNotEmpty;
     final hasSubjectFilter = selectedSubject != null;
     final emptyLabel = hasQuery || hasSubjectFilter ? 'No entries match your filter' : 'No dictionary entries found';
+    final safeSelectedSubject = subjects.contains(selectedSubject) ? selectedSubject : null;
+    final subjectItems = subjects.toList();
 
     return Column(
       children: [
@@ -57,7 +59,7 @@ class SearchDictionaryTab extends StatelessWidget {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String?>(
-                  initialValue: selectedSubject,
+                  initialValue: safeSelectedSubject,
                   decoration: InputDecoration(
                     labelText: 'Subject',
                     filled: true,
@@ -74,8 +76,9 @@ class SearchDictionaryTab extends StatelessWidget {
                   ),
                   items: [
                     const DropdownMenuItem<String?>(value: null, child: Text('All subjects')),
-                    ...subjects.map((subject) => DropdownMenuItem<String?>(value: subject, child: Text(subject))),
-                    if (subjects.isEmpty) DropdownMenuItem<String?>(value: selectedSubject, child: Text(selectedSubject ?? '')),
+                    ...subjectItems.map((subject) => DropdownMenuItem<String?>(value: subject, child: Text(subject))),
+                    if (safeSelectedSubject == null && selectedSubject != null)
+                      DropdownMenuItem<String?>(value: selectedSubject, child: Text(selectedSubject ?? '')),
                   ],
                   onChanged: onSubjectChanged,
                 ),

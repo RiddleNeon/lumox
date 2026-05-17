@@ -59,9 +59,11 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
   final TextEditingController _controller = TextEditingController();
 
   late TabController _tabController;
+  late PageController _pageController;
 
   bool _hasSearched = false;
   bool _loading = false;
+  String? _skipNextDeepLinkSearchQuery;
 
   SearchQuery<Video>? _videoQuery;
   SearchQuery<UserProfile>? _userQuery;
@@ -91,16 +93,12 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
   @override
   void initState() {
     super.initState();
+    print("SearchScreen initState, time: ${DateTime.now().millisecondsSinceEpoch}");
     _dictionarySelectedSubject = widget.initialDictionarySubject?.trim();
     _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(() {
-      if (mounted) setState(() {});
-      if (_tabController.index == 2) {
-        _ensureDictionaryData();
-      }
-    });
+    _pageController = PageController(initialPage: _tabController.index);
 
-    _applyDeepLinkState(triggerSearch: true);
+    _applyDeepLinkState(triggerSearch: true, notifyTabChange: false);
 
     if (widget.initialScope == SearchScope.dictionary && (widget.initialQuery == null || widget.initialQuery!.trim().isEmpty)) {
       _hasSearched = true;
@@ -109,6 +107,11 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
         _ensureDictionaryData();
       });
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _syncPageToTab();
+    });
   }
 
   @override
@@ -129,22 +132,31 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
     }
     _dictionarySelectedSubject = widget.initialDictionarySubject?.trim();
     _dictionaryAutoOpenedPreview = false;
-    _applyDeepLinkState(triggerSearch: true);
+    _applyDeepLinkState(triggerSearch: true, notifyTabChange: true);
   }
 
-  void _applyDeepLinkState({required bool triggerSearch}) {
+  void _applyDeepLinkState({required bool triggerSearch, required bool notifyTabChange}) {
     if (widget.initialScope == SearchScope.videos) {
-      _tabController.index = 0;
+      _setTabIndex(0, notify: notifyTabChange);
     } else if (widget.initialScope == SearchScope.profiles) {
-      _tabController.index = 1;
+      _setTabIndex(1, notify: notifyTabChange);
     } else if (widget.initialScope == SearchScope.dictionary) {
-      _tabController.index = 2;
+      _setTabIndex(2, notify: notifyTabChange);
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _syncPageToTab();
+    });
 
     final initialQuery = widget.initialQuery?.trim();
     if (initialQuery == null || initialQuery.isEmpty) return;
 
     _controller.text = initialQuery;
+    if (_skipNextDeepLinkSearchQuery == initialQuery) {
+      _skipNextDeepLinkSearchQuery = null;
+      return;
+    }
     if (!triggerSearch) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -152,10 +164,38 @@ class _SearchScreenState extends State<SearchScreen> with TickerProviderStateMix
     });
   }
 
+  void _syncPageToTab({bool animate = false}) {
+    if (!_pageController.hasClients) return;
+    final targetIndex = _tabController.index;
+    final currentIndex = (_pageController.page ?? _pageController.initialPage.toDouble()).round();
+    if (currentIndex == targetIndex) return;
+    if (animate) {
+      _pageController.animateToPage(targetIndex, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
+    } else {
+      _pageController.jumpToPage(targetIndex);
+    }
+  }
+
+  void _setTabIndex(int index, {bool notify = true}) {
+    if (_tabController.index == index) return;
+    _tabController.index = index;
+    _scheduleTabLoad(index);
+  }
+
+  void _scheduleTabLoad(int index) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (index == 2) {
+        _ensureDictionaryData();
+      }
+    });
+  }
+
   @override
   void dispose() {
     disposeThumbnailCache();
     _tabController.dispose();
+    _pageController.dispose();
     _controller.dispose();
     super.dispose();
   }

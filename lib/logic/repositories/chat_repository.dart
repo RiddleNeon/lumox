@@ -50,15 +50,13 @@ class ChatRepository {
       bool isBanned = responseJson['is_banned'] as bool? ?? false;
       
       if(isBanned) {
-        
-        Future.delayed(const Duration(seconds: 5), () {
+        Future.delayed(const Duration(seconds: 3), () {
           userBannedHint = true;
           userRepository.selfBanUserSupabase();
           onUserBanned?.call();
         });
-      }
-      
-      if (error == "MESSAGE_MODERATION_VIOLATION" && warningCount != null && warningCount > 0) {
+        throw UserBannedException("Your account has been banned due to repeated violations of our content guidelines. Please contact support for more information.");
+      } else if (error == "MESSAGE_MODERATION_VIOLATION" && warningCount != null && warningCount > 0) {
         print("Message was sent but with $warningCount content warnings. error message: $error");
         throw ContentModerationViolationException(warningCount, "Message sent but contains content that may violate our guidelines. Please review the content and try again.");
       } else if(error == "USER_BANNED") {

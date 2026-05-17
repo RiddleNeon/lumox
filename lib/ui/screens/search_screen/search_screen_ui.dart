@@ -45,7 +45,7 @@ extension _SearchScreenUi on _SearchScreenState {
         style: TextStyle(color: cs.onSurface, fontSize: 16),
         cursorColor: cs.primary,
         decoration: InputDecoration(
-          hintText: 'Search videos, creators, tags…',
+          hintText: 'Search videos, creators, tags...',
           hintStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 15),
           border: InputBorder.none,
           prefixIcon: Icon(Icons.search_rounded, color: cs.onSurfaceVariant, size: 22),
@@ -86,6 +86,7 @@ extension _SearchScreenUi on _SearchScreenState {
   }
 
   Widget _buildResultsBody(ColorScheme cs) {
+    print("building results body, search bar visibility: $_searchBarVisibility, time: ${DateTime.now().millisecondsSinceEpoch}");
     return Column(
       children: [
         _buildMatteSection(
@@ -113,11 +114,12 @@ extension _SearchScreenUi on _SearchScreenState {
             padding: EdgeInsets.zero,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(context.uiRadiusLg),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                child: KeyedSubtree(key: ValueKey('tab_${_tabController.index}'), child: _buildTabContent()),
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: 3,
+                allowImplicitScrolling: true,
+                onPageChanged: _handlePageChanged,
+                itemBuilder: (context, index) => _buildTabPage(index),
               ),
             ),
           ),
@@ -126,51 +128,88 @@ extension _SearchScreenUi on _SearchScreenState {
     );
   }
 
+  Widget _buildTabPage(int index) {
+    switch (index) {
+      case 0:
+        return KeyedSubtree(key: const PageStorageKey('search_tab_videos'), child: _buildVideosTab());
+      case 1:
+        return KeyedSubtree(key: const PageStorageKey('search_tab_creators'), child: _buildCreatorsTab());
+      case 2:
+        return KeyedSubtree(key: const PageStorageKey('search_tab_dictionary'), child: _buildDictionaryTab());
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  void _handleTabTap(int index) {
+    if (_tabController.index == index) return;
+    if (_pageController.hasClients) {
+      _pageController.animateToPage(index, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_pageController.hasClients) return;
+        _pageController.animateToPage(index, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
+      });
+    }
+    _ensureTabData(index);
+  }
+
+  void _handlePageChanged(int index) {
+    _setTabIndex(index);
+    _ensureTabData(index);
+  }
+
   Widget _buildTabBar(ColorScheme cs, {EdgeInsets? margin}) {
-    return Container(
-      margin: margin ?? const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(context.uiRadiusLg),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.65)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: SearchSegmentButton(
-              selected: _tabController.index == 0,
-              onTap: () => _tabController.animateTo(0),
-              icon: Icons.play_circle_outline,
-              label: _videoQuery?.totalResults != null ? 'Videos (${_videoQuery!.totalResults})' : 'Videos',
-            ),
+    return AnimatedBuilder(
+      animation: _tabController,
+      builder: (context, child) {
+        return Container(
+          margin: margin ?? const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(context.uiRadiusLg),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.65)),
           ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: SearchSegmentButton(
-              selected: _tabController.index == 1,
-              onTap: () => _tabController.animateTo(1),
-              icon: Icons.person_outline,
-              label: _userQuery?.totalResults != null ? 'Creators (${_userQuery!.totalResults})' : 'Creators',
-            ),
+          child: Row(
+            children: [
+              Expanded(
+                child: SearchSegmentButton(
+                  selected: _tabController.index == 0,
+                  onTap: () => _handleTabTap(0),
+                  icon: Icons.play_circle_outline,
+                  label: _videoQuery != null && _videoQuery!.hasTotalCount ? 'Videos (${_videoQuery!.totalResults})' : 'Videos (...)',
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: SearchSegmentButton(
+                  selected: _tabController.index == 1,
+                  onTap: () => _handleTabTap(1),
+                  icon: Icons.person_outline,
+                  label: _userQuery != null && _userQuery!.hasTotalCount ? 'Creators (${_userQuery!.totalResults})' : 'Creators (...)',
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: SearchSegmentButton(
+                  selected: _tabController.index == 2,
+                  onTap: () => _handleTabTap(2),
+                  icon: Icons.menu_book_outlined,
+                  label: _dictionaryEntries.isNotEmpty ? 'Dictionary (${_dictionaryEntries.length})' : 'Dictionary (...)',
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: SearchSegmentButton(
-              selected: _tabController.index == 2,
-              onTap: () => _tabController.animateTo(2),
-              icon: Icons.menu_book_outlined,
-              label: _dictionaryEntries.isNotEmpty ? 'Dictionary (${_dictionaryEntries.length})' : 'Dictionary',
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildTabContent() {
-    if (_tabController.index == 0 && _videoQuery != null) {
+  Widget _buildVideosTab() {
+    if (_videoQuery != null) {
       final query = _videoQuery!;
+      print("building video list with ${query.results.length} preloaded videos, total count: ${query.totalResults}, time: ${DateTime.now().millisecondsSinceEpoch}");
       return PreloadingSliverList<Video>(
         key: ValueKey(query),
         query: query,
@@ -190,7 +229,11 @@ extension _SearchScreenUi on _SearchScreenState {
       );
     }
 
-    if (_tabController.index == 1 && _userQuery != null) {
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildCreatorsTab() {
+    if (_userQuery != null) {
       final query = _userQuery!;
       return PreloadingSliverList<UserProfile>(
         key: ValueKey(query),
@@ -200,28 +243,27 @@ extension _SearchScreenUi on _SearchScreenState {
       );
     }
 
-    if (_tabController.index == 2) {
-      return SearchDictionaryTab(
-        entries: _dictionaryEntries,
-        subjects: _dictionarySubjects,
-        isLoading: _dictionaryLoading,
-        query: _dictionaryQuery,
-        selectedSubject: _dictionarySelectedSubject,
-        colorScheme: Theme.of(context).colorScheme,
-        onSubjectChanged: (value) {
-          setState(() => _dictionarySelectedSubject = value);
-          _loadDictionaryEntries(query: _controller.text);
-        },
-        onOpenEntry: (entry, entries) => _openEntryDetails(context, entry, entries),
-        loadContacts: (entry) async {
-          await _prepareShareContacts();
-          return _contactsForEntry(entry);
-        },
-        onShareToContact: (contact, entry) => _shareToContact(contact, entry),
-      );
-    }
-
     return const SizedBox.shrink();
   }
-}
 
+  Widget _buildDictionaryTab() {
+    return SearchDictionaryTab(
+      entries: _dictionaryEntries,
+      subjects: _dictionarySubjects,
+      isLoading: _dictionaryLoading,
+      query: _dictionaryQuery,
+      selectedSubject: _dictionarySelectedSubject,
+      colorScheme: Theme.of(context).colorScheme,
+      onSubjectChanged: (value) {
+        setState(() => _dictionarySelectedSubject = value);
+        _loadDictionaryEntries(query: _controller.text);
+      },
+      onOpenEntry: (entry, entries) => _openEntryDetails(context, entry, entries),
+      loadContacts: (entry) async {
+        await _prepareShareContacts();
+        return _contactsForEntry(entry);
+      },
+      onShareToContact: (contact, entry) => _shareToContact(contact, entry),
+    );
+  }
+}
