@@ -1,5 +1,7 @@
 import 'dart:math';
+import 'dart:convert';
 
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -27,16 +29,27 @@ import '../auth_screen.dart';
 import '../profile_screen.dart';
 import 'calling_screen.dart';
 import 'chat_route_preview.dart';
+import 'chat_attachment_builders.dart';
 import 'message_bubble.dart';
 
 class MessagingScreen extends StatefulWidget {
-  final Future<ChatMessage> Function(String message, void Function()? onUserBanned) onSend;
-  final Future<ChatMessage> Function(ChatMessage message, String newText) onEditOwnMessage;
+  final Future<ChatMessage> Function(
+    String message,
+    void Function()? onUserBanned,
+  )
+  onSend;
+  final Future<ChatMessage> Function(ChatMessage message, String newText)
+  onEditOwnMessage;
   final Future<void> Function(ChatMessage message) onDeleteOwnMessage;
-  final Future<List<MessageVersion>> Function(ChatMessage message) onLoadMessageVersions;
+  final Future<List<MessageVersion>> Function(ChatMessage message)
+  onLoadMessageVersions;
   final Future<bool> Function() canViewMessageHistory;
   final void Function(ChatMessage message) onMessageUpdateLocal;
-  final Future<List<ChatMessage>> Function(int limit, DateTime? lastVisibleMessage) loadMoreMessages;
+  final Future<List<ChatMessage>> Function(
+    int limit,
+    DateTime? lastVisibleMessage,
+  )
+  loadMoreMessages;
 
   String? get recipientName => user.displayName;
 
@@ -47,9 +60,9 @@ class MessagingScreen extends StatefulWidget {
   final UserProfile user;
 
   final bool isOnline;
-  
+
   final int conversationId;
-  
+
   final bool fakeTyping;
 
   const MessagingScreen({
@@ -62,8 +75,8 @@ class MessagingScreen extends StatefulWidget {
     this.isOnline = true,
     required this.loadMoreMessages,
     required this.onMessageUpdateLocal,
-    required this.user, 
-    required this.conversationId, 
+    required this.user,
+    required this.conversationId,
     this.fakeTyping = false,
   });
 
@@ -71,7 +84,12 @@ class MessagingScreen extends StatefulWidget {
   State<MessagingScreen> createState() => MessagingScreenState();
 }
 
-class MessagingScreenState extends State<MessagingScreen> with TickerProviderStateMixin {
+class MessagingScreenState extends State<MessagingScreen>
+    with TickerProviderStateMixin {
+  static const String _cloudinaryCloudName = String.fromEnvironment(
+    'CLOUDINARY_CLOUD_NAME',
+  );
+
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
@@ -109,7 +127,10 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     _textController.addListener(_onTextChanged);
     _scrollController.addListener(_onScroll);
 
-    _typingDotController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat();
+    _typingDotController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
 
     _loadHistoryPermission();
     _loadDictionaryEntries();
@@ -118,7 +139,6 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     _startRealtime();
   }
 
-
   void _startRealtime() {
     final supabase = Supabase.instance.client;
 
@@ -126,108 +146,115 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       'conversation-${widget.conversationId}',
     );
 
-    _messagesChannel!.onPostgresChanges(
-      event: PostgresChangeEvent.insert,
-      schema: 'public',
-      table: 'messages',
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'conversation_id',
-        value: widget.conversationId,
-      ),
-      callback: (payload) {
-        try {          
-          final data = payload.newRecord;
+    _messagesChannel!
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'conversation_id',
+            value: widget.conversationId,
+          ),
+          callback: (payload) {
+            try {
+              final data = payload.newRecord;
 
-          final messageId = data['id'].toString();
+              final messageId = data['id'].toString();
 
-          final alreadyExists = _messages.any(
-                (m) => m.id == messageId,
-          );
+              final alreadyExists = _messages.any((m) => m.id == messageId);
 
-          if (alreadyExists) return;
-          
-          final isMe = data['sender_id'] == currentUser.id;
+              if (alreadyExists) return;
 
-          final message = ChatMessage(
-            id: messageId,
-            text: data['content'] ?? '',
-            isMe: isMe,
-            timestamp: DateTime.parse(data['created_at']),
-            status: MessageStatus.delivered,
-          );
+              final isMe = data['sender_id'] == currentUser.id;
 
-          final shouldAutoScroll = _isNearBottom;
+              final message = ChatMessage(
+                id: messageId,
+                text: data['content'] ?? '',
+                isMe: isMe,
+                timestamp: DateTime.parse(data['created_at']),
+                status: MessageStatus.delivered,
+              );
 
-          if (_mergeOwnRealtimeMessage(message)) return;
+              final shouldAutoScroll = _isNearBottom;
 
-          _createBubbleController(message.id);
+              if (_mergeOwnRealtimeMessage(message)) return;
 
-          setState(() {
-            _messages.add(message);
-            if(!isMe && _partnerTyping && widget.fakeTyping){
-              _partnerTyping = false;
+              _createBubbleController(message.id);
+
+              setState(() {
+                _messages.add(message);
+                if (!isMe && _partnerTyping && widget.fakeTyping) {
+                  _partnerTyping = false;
+                }
+              });
+
+              widget.onMessageUpdateLocal(message);
+
+              if (shouldAutoScroll) {
+                _scrollToBottom(force: true);
+              }
+            } catch (e) {
+              debugPrint('Realtime insert failed: $e');
             }
-          });
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'conversation_id',
+            value: widget.conversationId,
+          ),
+          callback: (payload) {
+            print("UPDATE message version received: ${payload.newRecord}");
 
-          widget.onMessageUpdateLocal(message);
+            int messageId = int.parse(payload.newRecord['id'].toString());
 
-          if (shouldAutoScroll) {
-            _scrollToBottom(force: true);
-          }
-        } catch (e) {
-          debugPrint('Realtime insert failed: $e');
-        }
-      },
-    ).onPostgresChanges(
-      event: PostgresChangeEvent.update,
-      schema: 'public',
-      table: 'messages',
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'conversation_id',
-        value: widget.conversationId,
-      ),
-      callback: (payload) {
-        print("UPDATE message version received: ${payload.newRecord}");
-        
-        int messageId = int.parse(payload.newRecord['id'].toString());
-        
-        ChatMessage? message = _messages.where((m) => m.id == messageId.toString()).firstOrNull;
-        if(message == null) return;
-        
-        bool isDeleted = payload.newRecord['deleted_at'] != null;
-        if(isDeleted) {
-          print("message delete received for messageId=$messageId");
-          setState(() {
-            _messages.removeWhere((m) => m.id == messageId.toString());
-            _disposeBubbleController(messageId.toString());
-          });
-          return;
-        }
-        
-        String? newContent = payload.newRecord['content'];
-        if(newContent == null || newContent == message.text) return;
-        
-        print("message version update received for messageId=$messageId, newContent=$newContent");
-        setState(() {
-          int index = _messages.indexWhere((m) => m.id == messageId.toString());
-          if(index != -1) {
-            _messages[index] = ChatMessage(
-              id: message.id,
-              text: newContent,
-              isMe: message.isMe,
-              timestamp: message.timestamp,
-              status: message.status,
-              editedAt: DateTime.parse(payload.newRecord['edited_at']),
-              type: message.type,
-              deletedAt: message.deletedAt,
-              replyToMessageId: message.replyToMessageId
+            ChatMessage? message = _messages
+                .where((m) => m.id == messageId.toString())
+                .firstOrNull;
+            if (message == null) return;
+
+            bool isDeleted = payload.newRecord['deleted_at'] != null;
+            if (isDeleted) {
+              print("message delete received for messageId=$messageId");
+              setState(() {
+                _messages.removeWhere((m) => m.id == messageId.toString());
+                _disposeBubbleController(messageId.toString());
+              });
+              return;
+            }
+
+            String? newContent = payload.newRecord['content'];
+            if (newContent == null || newContent == message.text) return;
+
+            print(
+              "message version update received for messageId=$messageId, newContent=$newContent",
             );
-          }
-        });
-      },
-    ).subscribe();
+            setState(() {
+              int index = _messages.indexWhere(
+                (m) => m.id == messageId.toString(),
+              );
+              if (index != -1) {
+                _messages[index] = ChatMessage(
+                  id: message.id,
+                  text: newContent,
+                  isMe: message.isMe,
+                  timestamp: message.timestamp,
+                  status: message.status,
+                  editedAt: DateTime.parse(payload.newRecord['edited_at']),
+                  type: message.type,
+                  deletedAt: message.deletedAt,
+                  replyToMessageId: message.replyToMessageId,
+                );
+              }
+            });
+          },
+        )
+        .subscribe();
   }
 
   bool _mergeOwnRealtimeMessage(ChatMessage incoming) {
@@ -260,9 +287,12 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     });
     return true;
   }
-  
+
   Future<ChatRoutePreview?> _previewFutureFor(ChatRouteReference ref) {
-    return _previewFutureCache.putIfAbsent(ref.route, () => ChatRoutePreviewResolver.resolve(ref));
+    return _previewFutureCache.putIfAbsent(
+      ref.route,
+      () => ChatRoutePreviewResolver.resolve(ref),
+    );
   }
 
   Future<void> _loadDictionaryEntries() async {
@@ -271,7 +301,10 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       final aliasIndex = await dictionaryRepository.fetchAliasIndex();
       if (!mounted) return;
       setState(() {
-        _dictionaryEntriesByTitle = dictionaryRepository.buildTitleAliasIndex(entries, aliasIndex);
+        _dictionaryEntriesByTitle = dictionaryRepository.buildTitleAliasIndex(
+          entries,
+          aliasIndex,
+        );
       });
     } catch (e) {
       debugPrint('load dictionary entries failed: $e');
@@ -299,10 +332,100 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (ctx) => DictionaryPickerSheet(entriesFuture: dictionaryRepository.fetchEntries(), onSelect: (entry) => Navigator.of(ctx).pop(entry)),
+      builder: (ctx) => DictionaryPickerSheet(
+        entriesFuture: dictionaryRepository.fetchEntries(),
+        onSelect: (entry) => Navigator.of(ctx).pop(entry),
+      ),
     );
     if (selected != null) {
       await _sendDictionaryEntry(selected);
+    }
+  }
+
+  Future<String> _uploadImageToCloudinary(
+    Uint8List bytes, {
+    String? filename,
+  }) async {
+    if (_cloudinaryCloudName.isEmpty) {
+      throw StateError('Cloudinary cloud name is not configured.');
+    }
+    final uri = Uri.parse(
+      'https://api.cloudinary.com/v1_1/$_cloudinaryCloudName/image/upload',
+    );
+    final request = http.MultipartRequest('POST', uri)
+      ..fields['upload_preset'] = 'tmp_profile_imgs'
+      ..files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          bytes,
+          filename: filename ?? 'chat_image.jpg',
+        ),
+      );
+
+    final response = await request.send();
+    final body = await response.stream.bytesToString();
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Cloudinary upload failed (${response.statusCode}): $body',
+      );
+    }
+
+    final decoded = jsonDecode(body) as Map<String, dynamic>;
+    final secureUrl = decoded['secure_url']?.toString();
+    if (secureUrl == null || secureUrl.isEmpty) {
+      throw Exception('Cloudinary response missing secure_url');
+    }
+    return secureUrl;
+  }
+
+  Future<void> _sendImageMarkdown(String imageUrl) async {
+    final url = imageUrl.trim();
+    if (url.isEmpty) return;
+    await _sendMessageText('![image]($url)');
+  }
+
+  Future<void> _openAttachmentSheet() async {
+    final action = await showChatAttachmentActionSheet(context);
+    if (!mounted || action == null) return;
+
+    try {
+      switch (action) {
+        case ChatAttachmentAction.fileImage:
+          final uploadedUrl = await showChatFileImageUploadSheet(
+            context,
+            uploadImage: _uploadImageToCloudinary,
+          );
+          if (uploadedUrl != null) {
+            await _sendImageMarkdown(uploadedUrl);
+          }
+          break;
+        case ChatAttachmentAction.urlImage:
+          final imageUrl = await showChatUrlImageUploadSheet(context);
+          if (imageUrl != null) {
+            await _sendImageMarkdown(imageUrl);
+          }
+          break;
+        case ChatAttachmentAction.cameraImage:
+          final uploadedUrl = await showChatCameraImageUploadSheet(
+            context,
+            uploadImage: _uploadImageToCloudinary,
+          );
+          if (uploadedUrl != null) {
+            await _sendImageMarkdown(uploadedUrl);
+          }
+          break;
+        case ChatAttachmentAction.deepLink:
+          final route = await showChatDeepLinkBuilderSheet(context);
+          if (route != null && route.trim().isNotEmpty) {
+            await _sendMessageText(route.trim());
+          }
+          break;
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Attachment action failed: $e')));
     }
   }
 
@@ -312,7 +435,9 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     for (final message in _messages) {
       for (final ref in ChatRoutePreviewResolver.extract(message.text)) {
         if (!ref.uri.path.startsWith('/feed/')) continue;
-        final pathId = ref.uri.pathSegments.length > 1 ? ref.uri.pathSegments[1] : '';
+        final pathId = ref.uri.pathSegments.length > 1
+            ? ref.uri.pathSegments[1]
+            : '';
         if (pathId.isNotEmpty && seen.add(pathId)) {
           ids.add(pathId);
         }
@@ -351,7 +476,9 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
   Future<String> _withChatFeedContext(String route) async {
     final uri = Uri.tryParse(route);
     if (uri == null || !uri.path.startsWith('/feed/')) return route;
-    final currentVideoId = uri.pathSegments.length > 1 ? uri.pathSegments[1] : '';
+    final currentVideoId = uri.pathSegments.length > 1
+        ? uri.pathSegments[1]
+        : '';
     if (currentVideoId.isEmpty) return route;
 
     final ids = <String>[currentVideoId, ...await _loadSharedFeedVideoIds()];
@@ -386,7 +513,11 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     final routeVideoId = uri.pathSegments.length > 1 ? uri.pathSegments[1] : '';
     if (routeVideoId.isEmpty) return;
 
-    final queryIds = (uri.queryParameters['ids'] ?? '').split(',').map((id) => id.trim()).where((id) => id.isNotEmpty).toList();
+    final queryIds = (uri.queryParameters['ids'] ?? '')
+        .split(',')
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toList();
     final orderedIds = <String>[routeVideoId, ...queryIds];
 
     final uniqueIds = <String>[];
@@ -415,7 +546,11 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
 
     if (!mounted) return;
     final index = videos.indexWhere((video) => video.id == routeVideoId);
-    await openVideoPlayer(context: context, listedVideos: videos, videoIndex: index >= 0 ? index : 0);
+    await openVideoPlayer(
+      context: context,
+      listedVideos: videos,
+      videoIndex: index >= 0 ? index : 0,
+    );
   }
 
   bool preloading = false;
@@ -434,7 +569,10 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
 
     try {
       final wasEmpty = _messages.isEmpty;
-      final loadedMessages = await widget.loadMoreMessages(limit, currentMessageCursor);
+      final loadedMessages = await widget.loadMoreMessages(
+        limit,
+        currentMessageCursor,
+      );
       if (!mounted) return;
 
       if (loadedMessages.isEmpty) {
@@ -462,10 +600,16 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     return _scrollController.offset <= _bottomScrollThreshold;
   }
 
-  AnimationController _ensureBubbleController(String id, {bool animate = true}) {
+  AnimationController _ensureBubbleController(
+    String id, {
+    bool animate = true,
+  }) {
     final existing = _bubbleControllers[id];
     if (existing != null) return existing;
-    final ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 350));
+    final ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
     _bubbleControllers[id] = ctrl;
     if (animate) {
       ctrl.forward();
@@ -475,7 +619,10 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     return ctrl;
   }
 
-  AnimationController _createBubbleController(String id, {bool animate = true}) {
+  AnimationController _createBubbleController(
+    String id, {
+    bool animate = true,
+  }) {
     return _ensureBubbleController(id, animate: animate);
   }
 
@@ -520,7 +667,8 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     bool cacheLocally = true,
   }) {
     if (!mounted) return -1;
-    final messageId = id ?? (createdAt ?? DateTime.now()).millisecondsSinceEpoch.toString();
+    final messageId =
+        id ?? (createdAt ?? DateTime.now()).millisecondsSinceEpoch.toString();
     if (isNewMessage && cacheLocally) {
       widget.onMessageUpdateLocal(
         ChatMessage(
@@ -556,11 +704,10 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
 
     if (isMe) {
       if (sendingFuture == null) {
-        
-        if(widget.fakeTyping) {
+        if (widget.fakeTyping) {
           startFakeTyping(Duration(seconds: Random().nextInt(6)));
         }
-        
+
         setState(() => msg.status = MessageStatus.sent);
       }
       sendingFuture
@@ -568,8 +715,8 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
             if (mounted) {
               setState(() => msg.status = MessageStatus.delivered);
             }
-            
-            if(widget.fakeTyping) {
+
+            if (widget.fakeTyping) {
               startFakeTyping(Duration(seconds: Random().nextInt(3) + 1));
             }
           })
@@ -582,19 +729,23 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     }
     return _messages.indexWhere((m) => m.id == msg.id);
   }
-  
+
   Future<void> startFakeTyping([Duration? offset]) async {
-    if(offset != null) {
+    if (offset != null) {
       await Future.delayed(offset);
     }
     if (!mounted) return;
-    
+
     print("STARTING FAKE TYPING");
-    
+
     setState(() => _partnerTyping = true);
   }
 
-  void _addMessages(List<ChatMessage> messages, {bool appendToEnd = true, bool isNewMessage = true}) {
+  void _addMessages(
+    List<ChatMessage> messages, {
+    bool appendToEnd = true,
+    bool isNewMessage = true,
+  }) {
     if (!mounted) return;
     if (messages.isEmpty) return;
 
@@ -621,7 +772,8 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       final existingIndex = existingIndexById[normalized.id];
       if (existingIndex != null) {
         final current = _messages[existingIndex];
-        final shouldUpdate = current.text != normalized.text ||
+        final shouldUpdate =
+            current.text != normalized.text ||
             current.timestamp != normalized.timestamp ||
             current.editedAt != normalized.editedAt ||
             current.deletedAt != normalized.deletedAt ||
@@ -699,7 +851,9 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
         widget.onMessageUpdateLocal(updated);
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to edit message: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to edit message: $e')));
       }
       return;
     }
@@ -712,7 +866,14 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     HapticFeedback.lightImpact();
 
     final tempId = DateTime.now().millisecondsSinceEpoch.toString();
-    int tempIndex = _addMessage(text: text, isMe: true, isNewMessage: true, id: tempId, autoScroll: true, cacheLocally: false);
+    int tempIndex = _addMessage(
+      text: text,
+      isMe: true,
+      isNewMessage: true,
+      id: tempId,
+      autoScroll: true,
+      cacheLocally: false,
+    );
 
     try {
       final serverMessage = await widget.onSend(text, () {
@@ -725,10 +886,12 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
             ),
           );
         }
-      },);
+      });
       if (mounted) {
         widget.onMessageUpdateLocal(serverMessage);
-        int existingIndex = _messages.indexWhere((m) => m.id == serverMessage.id);
+        int existingIndex = _messages.indexWhere(
+          (m) => m.id == serverMessage.id,
+        );
         int tempIndex = _messages.indexWhere((m) => m.id == tempId);
 
         if (existingIndex != -1) {
@@ -774,7 +937,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
         }
       }
     } on ContentModerationViolationException catch (e) {
-      if(mounted) {
+      if (mounted) {
         showSnackBar(context, e.message);
         setState(() {
           _messages.removeAt(tempIndex);
@@ -801,7 +964,9 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       _disposeBubbleController(message.id);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete message: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to delete message: $e')));
     }
   }
 
@@ -821,7 +986,10 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
               children: [
                 const Padding(
                   padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text('Message edit history', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  child: Text(
+                    'Message edit history',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
                 ),
                 Expanded(
                   child: versions.isEmpty
@@ -832,7 +1000,9 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
                             final version = versions[i];
                             return ListTile(
                               title: Text(version.content),
-                              subtitle: Text('v${version.versionNo} • ${version.changeType} • ${version.editedAt.toLocal()}'),
+                              subtitle: Text(
+                                'v${version.versionNo} • ${version.changeType} • ${version.editedAt.toLocal()}',
+                              ),
                             );
                           },
                         ),
@@ -844,7 +1014,9 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load history: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load history: $e')));
     }
   }
 
@@ -864,15 +1036,23 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
                   setState(() {
                     _editingMessageId = message.id;
                     _textController.text = message.text;
-                    _textController.selection = TextSelection.collapsed(offset: _textController.text.length);
+                    _textController.selection = TextSelection.collapsed(
+                      offset: _textController.text.length,
+                    );
                   });
                   _focusNode.requestFocus();
                 },
               ),
             if (message.isMe)
               ListTile(
-                leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                title: const Text('Delete message', style: TextStyle(color: Colors.redAccent)),
+                leading: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.redAccent,
+                ),
+                title: const Text(
+                  'Delete message',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   _deleteMessage(message);
@@ -906,11 +1086,14 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
     } else if (atBottom && _showScrollDown) {
       setState(() => _showScrollDown = false);
     }
-    final remaining = _scrollController.position.maxScrollExtent - _scrollController.offset;
+    final remaining =
+        _scrollController.position.maxScrollExtent - _scrollController.offset;
     if (_scrollController.offset > _bottomScrollThreshold) {
       _historyLoadArmedByUserScroll = true;
     }
-    if (_initialViewportAnchored && _historyLoadArmedByUserScroll && remaining <= _historyLoadTopThreshold) {
+    if (_initialViewportAnchored &&
+        _historyLoadArmedByUserScroll &&
+        remaining <= _historyLoadTopThreshold) {
       _preloadMore(limit: _historyPageSize);
     }
   }
@@ -923,7 +1106,11 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
         if (force) {
           _scrollController.jumpTo(target);
         } else {
-          _scrollController.animateTo(target, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+          _scrollController.animateTo(
+            target,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
         }
       }
     });
@@ -936,27 +1123,52 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       children: [
         Align(
           alignment: Alignment.centerLeft,
-          child: ShimmerBlock(width: 220, height: 40, borderRadius: radius, color: cs.surfaceContainerHigh),
+          child: ShimmerBlock(
+            width: 220,
+            height: 40,
+            borderRadius: radius,
+            color: cs.surfaceContainerHigh,
+          ),
         ),
         const SizedBox(height: 10),
         Align(
           alignment: Alignment.centerRight,
-          child: ShimmerBlock(width: 180, height: 36, borderRadius: radius, color: cs.surfaceContainerHigh),
+          child: ShimmerBlock(
+            width: 180,
+            height: 36,
+            borderRadius: radius,
+            color: cs.surfaceContainerHigh,
+          ),
         ),
         const SizedBox(height: 10),
         Align(
           alignment: Alignment.centerLeft,
-          child: ShimmerBlock(width: 240, height: 54, borderRadius: radius, color: cs.surfaceContainerHigh),
+          child: ShimmerBlock(
+            width: 240,
+            height: 54,
+            borderRadius: radius,
+            color: cs.surfaceContainerHigh,
+          ),
         ),
         const SizedBox(height: 10),
         Align(
           alignment: Alignment.centerRight,
-          child: ShimmerBlock(width: 200, height: 40, borderRadius: radius, color: cs.surfaceContainerHigh),
+          child: ShimmerBlock(
+            width: 200,
+            height: 40,
+            borderRadius: radius,
+            color: cs.surfaceContainerHigh,
+          ),
         ),
         const SizedBox(height: 10),
         Align(
           alignment: Alignment.centerLeft,
-          child: ShimmerBlock(width: 160, height: 36, borderRadius: radius, color: cs.surfaceContainerHigh),
+          child: ShimmerBlock(
+            width: 160,
+            height: 36,
+            borderRadius: radius,
+            color: cs.surfaceContainerHigh,
+          ),
         ),
       ],
     );
@@ -985,7 +1197,10 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
             curve: Curves.easeOut,
             bottom: _showScrollDown ? 80 : -60,
             right: 16,
-            child: _ScrollDownButton(onTap: () => _scrollToBottom(force: true), colorScheme: cs),
+            child: _ScrollDownButton(
+              onTap: () => _scrollToBottom(force: true),
+              colorScheme: cs,
+            ),
           ),
         ],
       ),
@@ -1001,9 +1216,17 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       ),*/
       scrolledUnderElevation: 0,
       toolbarHeight: kToolbarHeight,
-      systemOverlayStyle: SystemUiOverlayStyle(statusBarBrightness: theme.brightness == Brightness.dark ? Brightness.dark : Brightness.light),
+      systemOverlayStyle: SystemUiOverlayStyle(
+        statusBarBrightness: theme.brightness == Brightness.dark
+            ? Brightness.dark
+            : Brightness.light,
+      ),
       leading: IconButton(
-        icon: Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: cs.onSurface),
+        icon: Icon(
+          Icons.arrow_back_ios_new_rounded,
+          size: 20,
+          color: cs.onSurface,
+        ),
         onPressed: () => Navigator.maybePop(context),
       ),
       title: InkWell(
@@ -1020,7 +1243,10 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
             },
           ),
         ),
-        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(context.uiRadiusLg), bottomRight: Radius.circular(context.uiRadiusLg)),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(context.uiRadiusLg),
+          bottomRight: Radius.circular(context.uiRadiusLg),
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8),
           child: Row(
@@ -1039,11 +1265,19 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
                 children: [
                   Text(
                     widget.recipientName ?? '',
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700, fontSize: 15, color: cs.onSurface),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: cs.onSurface,
+                    ),
                   ),
                   Text(
                     widget.isOnline ? 'Active now' : 'Offline',
-                    style: TextStyle(fontSize: 11, color: widget.isOnline ? cs.tertiary : cs.outline, fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: widget.isOnline ? cs.tertiary : cs.outline,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
@@ -1062,7 +1296,9 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
                   builder: (context) {
                     return CallingApp(
                       name: widget.recipientName ?? "Unknown User",
-                      profileImageUrl: widget.recipientAvatarUrl ?? createUserProfileImageUrl(widget.recipientName ?? ""),
+                      profileImageUrl:
+                          widget.recipientAvatarUrl ??
+                          createUserProfileImageUrl(widget.recipientName ?? ""),
                     );
                   },
                 ),
@@ -1085,13 +1321,18 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInCubic,
       child: isLoading
-          ? KeyedSubtree(key: const ValueKey('chat_skeleton'), child: _buildMessageSkeleton(cs))
+          ? KeyedSubtree(
+              key: const ValueKey('chat_skeleton'),
+              child: _buildMessageSkeleton(cs),
+            )
           : KeyedSubtree(
               key: const ValueKey('chat_messages'),
               child: NotificationListener<UserScrollNotification>(
                 onNotification: (notification) {
                   // Only load older pages after a deliberate upward user scroll.
-                  if (notification.direction != ScrollDirection.idle && _scrollController.hasClients && _scrollController.offset > _bottomScrollThreshold) {
+                  if (notification.direction != ScrollDirection.idle &&
+                      _scrollController.hasClients &&
+                      _scrollController.offset > _bottomScrollThreshold) {
                     _historyLoadArmedByUserScroll = true;
                   }
                   return false;
@@ -1101,18 +1342,32 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
                   child: ListView.builder(
                     controller: _scrollController,
                     reverse: true,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     itemCount: _messages.length,
                     itemBuilder: (ctx, i) {
                       final index = _messages.length - 1 - i;
                       final msg = _messages[index];
                       final prevMsg = index > 0 ? _messages[index - 1] : null;
-                      final nextMsg = index < _messages.length - 1 ? _messages[index + 1] : null;
+                      final nextMsg = index < _messages.length - 1
+                          ? _messages[index + 1]
+                          : null;
 
-                      final showAvatar = !msg.isMe && (nextMsg == null || nextMsg.isMe || _isNewGroup(msg, nextMsg));
-                      final showTimestamp = nextMsg == null || msg.timestamp.difference(nextMsg.timestamp).abs() > const Duration(minutes: 10);
+                      final showAvatar =
+                          !msg.isMe &&
+                          (nextMsg == null ||
+                              nextMsg.isMe ||
+                              _isNewGroup(msg, nextMsg));
+                      final showTimestamp =
+                          nextMsg == null ||
+                          msg.timestamp.difference(nextMsg.timestamp).abs() >
+                              const Duration(minutes: 10);
 
-                      final ctrl = _bubbleControllers[msg.id] ?? _ensureBubbleController(msg.id, animate: false);
+                      final ctrl =
+                          _bubbleControllers[msg.id] ??
+                          _ensureBubbleController(msg.id, animate: false);
 
                       return MessageBubble(
                         key: ValueKey(msg.id),
@@ -1141,7 +1396,8 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
   }
 
   bool _isNewGroup(ChatMessage a, ChatMessage b) {
-    return b.timestamp.difference(a.timestamp).abs() > const Duration(minutes: 5);
+    return b.timestamp.difference(a.timestamp).abs() >
+        const Duration(minutes: 5);
   }
 
   Widget _buildTypingIndicator(ColorScheme cs) {
@@ -1160,11 +1416,18 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
         left: 12,
         right: 12,
         top: 8,
-        bottom: MediaQuery.of(context).viewInsets.bottom > 0 ? 8 : max(MediaQuery.of(context).padding.bottom, 12),
+        bottom: MediaQuery.of(context).viewInsets.bottom > 0
+            ? 8
+            : max(MediaQuery.of(context).padding.bottom, 12),
       ),
       decoration: BoxDecoration(
         color: cs.surface,
-        border: Border(top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.3), width: 0.5)),
+        border: Border(
+          top: BorderSide(
+            color: cs.outlineVariant.withValues(alpha: 0.3),
+            width: 0.5,
+          ),
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1176,16 +1439,25 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
               decoration: BoxDecoration(
                 color: cs.secondaryContainer.withValues(alpha: 0.55),
                 borderRadius: BorderRadius.circular(context.uiRadiusSm),
-                border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: 0.5),
+                ),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.edit_outlined, size: 16, color: cs.onSecondaryContainer),
+                  Icon(
+                    Icons.edit_outlined,
+                    size: 16,
+                    color: cs.onSecondaryContainer,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Editing message',
-                      style: TextStyle(color: cs.onSecondaryContainer, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: cs.onSecondaryContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   GestureDetector(
@@ -1195,7 +1467,11 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
                         _textController.clear();
                       });
                     },
-                    child: Icon(Icons.close_rounded, size: 18, color: cs.onSecondaryContainer),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: cs.onSecondaryContainer,
+                    ),
                   ),
                 ],
               ),
@@ -1203,9 +1479,17 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _InputIconButton(icon: Icons.add_circle_outline_rounded, color: cs.onSurfaceVariant, onTap: () {}),
+              _InputIconButton(
+                icon: Icons.add_circle_outline_rounded,
+                color: cs.onSurfaceVariant,
+                onTap: _openAttachmentSheet,
+              ),
               const SizedBox(width: 6),
-              _InputIconButton(icon: Icons.menu_book_outlined, color: cs.onSurfaceVariant, onTap: _openDictionaryPicker),
+              _InputIconButton(
+                icon: Icons.menu_book_outlined,
+                color: cs.onSurfaceVariant,
+                onTap: _openDictionaryPicker,
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: AnimatedContainer(
@@ -1215,7 +1499,12 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
                   decoration: BoxDecoration(
                     color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(_isTyping ? 22 : 24),
-                    border: Border.all(color: cs.outlineVariant.withValues(alpha: _isTyping ? 0.7 : 0.4), width: 1),
+                    border: Border.all(
+                      color: cs.outlineVariant.withValues(
+                        alpha: _isTyping ? 0.7 : 0.4,
+                      ),
+                      width: 1,
+                    ),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -1225,8 +1514,10 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
                           onKeyEvent: (node, event) {
                             if (event is KeyDownEvent &&
                                 event.logicalKey == LogicalKeyboardKey.enter &&
-                                !HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.shiftLeft) &&
-                                !HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.shiftRight)) {
+                                !HardwareKeyboard.instance.logicalKeysPressed
+                                    .contains(LogicalKeyboardKey.shiftLeft) &&
+                                !HardwareKeyboard.instance.logicalKeysPressed
+                                    .contains(LogicalKeyboardKey.shiftRight)) {
                               _sendMessage();
                               return KeyEventResult.handled;
                             }
@@ -1239,12 +1530,26 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
                             minLines: 1,
                             maxLines: 5,
                             textInputAction: TextInputAction.newline,
-                            style: TextStyle(color: cs.onSurface, fontSize: 15, height: 1.4),
+                            style: TextStyle(
+                              color: cs.onSurface,
+                              fontSize: 15,
+                              height: 1.4,
+                            ),
                             decoration: InputDecoration(
-                              hintText: _editingMessageId == null ? 'Message…' : 'Edit message…',
-                              hintStyle: TextStyle(color: cs.onSurfaceVariant.withValues(alpha: 0.6), fontSize: 15),
+                              hintText: _editingMessageId == null
+                                  ? 'Message…'
+                                  : 'Edit message…',
+                              hintStyle: TextStyle(
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.6,
+                                ),
+                                fontSize: 15,
+                              ),
                               border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
                               isDense: true,
                             ),
                           ),
@@ -1257,10 +1562,20 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
               const SizedBox(width: 6),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
-                transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+                transitionBuilder: (child, anim) =>
+                    ScaleTransition(scale: anim, child: child),
                 child: _isTyping
-                    ? _SendButton(key: const ValueKey('send'), onTap: _sendMessage, colorScheme: cs)
-                    : _InputIconButton(key: const ValueKey('mic'), icon: Icons.mic_none_rounded, color: cs.onSurfaceVariant, onTap: () {}),
+                    ? _SendButton(
+                        key: const ValueKey('send'),
+                        onTap: _sendMessage,
+                        colorScheme: cs,
+                      )
+                    : _InputIconButton(
+                        key: const ValueKey('mic'),
+                        icon: Icons.mic_none_rounded,
+                        color: cs.onSurfaceVariant,
+                        onTap: () {},
+                      ),
               ),
             ],
           ),
@@ -1309,7 +1624,10 @@ class TypingBubble extends StatelessWidget {
       builder: (context, _) {
         return Container(
           margin: EdgeInsets.only(bottom: context.uiSpace(4)),
-          padding: EdgeInsets.symmetric(horizontal: context.uiSpace(16), vertical: context.uiSpace(12)),
+          padding: EdgeInsets.symmetric(
+            horizontal: context.uiSpace(16),
+            vertical: context.uiSpace(12),
+          ),
           decoration: BoxDecoration(
             color: cs.surfaceContainerHigh,
             borderRadius: BorderRadius.only(
@@ -1330,12 +1648,10 @@ class TypingBubble extends StatelessWidget {
             }),
           ),
         );
-      }
+      },
     );
   }
 }
-
-
 
 class _TypingDot extends StatelessWidget {
   final int index;
@@ -1354,18 +1670,14 @@ class _TypingDot extends StatelessWidget {
 
     final t = ((controllerValue - delay) % 1.0).clamp(0.0, 1.0);
 
-    final curve = Curves.easeInOutCubicEmphasized.transform(
-      sin(t * pi),
-    );
+    final curve = Curves.easeInOutCubicEmphasized.transform(sin(t * pi));
 
     final translateY = -curve * 5;
     final scale = 0.85 + (curve * 0.35);
     final opacity = 0.35 + (curve * 0.65);
 
     return Padding(
-      padding: EdgeInsets.only(
-        right: index < 2 ? context.uiSpace(4) : 0,
-      ),
+      padding: EdgeInsets.only(right: index < 2 ? context.uiSpace(4) : 0),
       child: Transform.translate(
         offset: Offset(0, translateY + 3.5),
         child: Transform.scale(
@@ -1375,10 +1687,7 @@ class _TypingDot extends StatelessWidget {
             child: Container(
               width: context.uiSpace(7),
               height: context.uiSpace(7),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: color,
-              ),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: color),
             ),
           ),
         ),
@@ -1386,25 +1695,39 @@ class _TypingDot extends StatelessWidget {
     );
   }
 }
+
 class _SendButton extends StatefulWidget {
   final VoidCallback onTap;
   final ColorScheme colorScheme;
 
-  const _SendButton({super.key, required this.onTap, required this.colorScheme});
+  const _SendButton({
+    super.key,
+    required this.onTap,
+    required this.colorScheme,
+  });
 
   @override
   State<_SendButton> createState() => _SendButtonState();
 }
 
-class _SendButtonState extends State<_SendButton> with SingleTickerProviderStateMixin {
+class _SendButtonState extends State<_SendButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _scaleAnim;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 120), lowerBound: 0.0, upperBound: 1.0);
-    _scaleAnim = Tween(begin: 1.0, end: 0.88).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 120),
+      lowerBound: 0.0,
+      upperBound: 1.0,
+    );
+    _scaleAnim = Tween(
+      begin: 1.0,
+      end: 0.88,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
   }
 
   @override
@@ -1432,7 +1755,10 @@ class _SendButtonState extends State<_SendButton> with SingleTickerProviderState
           decoration: BoxDecoration(
             color: cs.primary,
             shape: BoxShape.circle,
-            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.45), width: context.uiBorderWidth),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: 0.45),
+              width: context.uiBorderWidth,
+            ),
           ),
           child: Icon(Icons.send_rounded, color: cs.onPrimary, size: 20),
         ),
@@ -1459,9 +1785,16 @@ class _ScrollDownButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: cs.surfaceContainerHigh,
           shape: BoxShape.circle,
-          border: Border.all(color: cs.outlineVariant, width: context.uiBorderWidth),
+          border: Border.all(
+            color: cs.outlineVariant,
+            width: context.uiBorderWidth,
+          ),
         ),
-        child: Icon(Icons.keyboard_arrow_down_rounded, color: cs.onSurface, size: 20),
+        child: Icon(
+          Icons.keyboard_arrow_down_rounded,
+          color: cs.onSurface,
+          size: 20,
+        ),
       ),
     );
   }
@@ -1472,7 +1805,12 @@ class _InputIconButton extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const _InputIconButton({super.key, required this.icon, required this.color, required this.onTap});
+  const _InputIconButton({
+    super.key,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
