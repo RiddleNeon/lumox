@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:lumox/logic/video/video.dart';
 import 'package:lumox/logic/video/video_provider.dart';
 import 'package:lumox/ui/router/router.dart';
-import 'package:lumox/ui/screens/auth_screen.dart';
 import 'package:lumox/ui/theme/theme_ui_values.dart';
 import 'package:lumox/ui/video/shorts_player.dart';
 import 'package:lumox/ui/video/video_container.dart';

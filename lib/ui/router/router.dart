@@ -5,14 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lumox/main.dart';
 import 'package:lumox/transcription/uploading/video_upload_screen.dart';
-import 'package:lumox/ui/animations/slide_morph_transitions.dart';
-import 'package:lumox/ui/screens/auth_screen.dart';
-import 'package:lumox/ui/screens/chat/chat_managing_screen.dart';
-import 'package:lumox/ui/screens/home/home_screen.dart';
+import 'package:lumox/ui/misc/animations/slide_morph_transitions.dart';
+import 'package:lumox/ui/auth/auth_screen.dart';
 import 'package:lumox/ui/screens/profile_screen.dart';
-import 'package:lumox/ui/screens/quests/quest_screen.dart';
-import 'package:lumox/ui/screens/search_screen/search_screen.dart';
-import 'package:lumox/ui/screens/settings/settings_screen.dart';
+import 'package:lumox/ui/search_screen/search_screen.dart';
+import 'package:lumox/ui/settings/settings_screen.dart';
 import 'package:lumox/ui/theme/theme_creation_screen.dart';
 import 'package:lumox/ui/video/short_video_player.dart';
 import 'package:lumox/ui/widgets/bottom_navigation_bar.dart';
@@ -21,6 +18,9 @@ import '../../base_logic.dart';
 import '../../logic/feed_recommendation/search_video_result_recommender.dart';
 import '../../logic/repositories/video_repository.dart';
 import '../../logic/video/video.dart';
+import '../chat/chat_managing_screen.dart';
+import '../home/home_screen.dart';
+import '../quests/quest_screen.dart';
 
 late final GoRouter routerConfig;
 

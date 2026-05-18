@@ -9,7 +9,7 @@ import 'package:lumox/logic/local_storage/local_seen_service.dart';
 import 'package:lumox/logic/repositories/video_repository.dart';
 import 'package:lumox/logic/video/video.dart';
 import 'package:lumox/logic/video/video_provider.dart';
-import 'package:lumox/ui/widgets/overlays/overlays.dart';
+import 'package:lumox/ui/widgets/overlays/video_info/overlays.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 import '../router/router.dart';

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:lumox/ui/screens/search_screen/search_query.dart';
-import 'package:lumox/ui/screens/search_screen/widgets/empty_search_state.dart';
-import 'package:lumox/ui/screens/search_screen/widgets/scroll_area.dart';
+import 'package:lumox/ui/search_screen/search_query.dart';
+import 'package:lumox/ui/search_screen/widgets/empty_search_state.dart';
+import 'package:lumox/ui/search_screen/widgets/scroll_area.dart';
 
 class PreloadingList<T> extends StatefulWidget {
   final SearchQuery<T> query;

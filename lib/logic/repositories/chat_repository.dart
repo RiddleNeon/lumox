@@ -25,7 +25,6 @@ class ChatRepository {
     );
     chat.conversationId = conversationId;
 
-    print("Sending message to conversation $conversationId with content: ${message.text}, replyToMessageId: ${message.replyToMessageId}");
     
     final Map<String, dynamic> responseJson = await supabaseClient.rpc('send_message', params: {
       'p_conversation_id': conversationId,
@@ -35,11 +34,9 @@ class ChatRepository {
       print("ERROR sending message: $error");
       return Future.error(error!, stackTrace);
     },).then((value) {
-      print("Message sent successfully, server response: $value");
       return value as Map<String, dynamic>;
     },);
     
-    print("Inserted message row. response json: $responseJson");
     
     bool successful = responseJson['success'] == true;
     if (!successful) {
@@ -291,7 +288,7 @@ class ChatRepository {
     print("Queried conversation $conversationId from server, result: $serverResult");
     
     
-    final conversation = serverResult as Map<String, dynamic>?;
+    final conversation = serverResult;
     if (conversation == null) {
       throw Exception("No conversation found with id $conversationId");
     }
@@ -395,16 +392,12 @@ class ChatRepository {
       return existingConversationId;
     }
 
-    print("No existing conversation found with $receiverId, creating a new one. currentUser: ${currentUser.id}");
-
     final conversationId = await supabaseClient.rpc(
       'create_conversation',
       params: {'p_receiver_id': receiverId, 'p_title': null, 'p_type': null},
     ) as int;
-    print("Created conversation $conversationId with $receiverId");
 
     await getChat(conversationId, receiverId, partnerName: partnerName, partnerProfileImageUrl: partnerProfileImageUrl);
-    print("got chat");
     _conversationIdCache[receiverId] = _CachedConversationId(conversationId);
     _invalidateChatPagesForUser(currentUser.id);
 

@@ -6,23 +6,23 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lumox/logic/repositories/user_repository.dart' as user_repo;
 import 'package:lumox/logic/users/user_model.dart';
 import 'package:lumox/logic/video/video.dart';
-import 'package:lumox/ui/animations/slide_morph_transitions.dart';
+import 'package:lumox/ui/misc/animations/slide_morph_transitions.dart';
 import 'package:lumox/ui/router/deep_link_builder.dart';
 import 'package:lumox/ui/misc/avatar.dart';
 import 'package:lumox/ui/misc/preloading_list.dart';
 import 'package:lumox/ui/router/router.dart';
-import 'package:lumox/ui/screens/search_screen/search_query.dart';
-import 'package:lumox/ui/screens/search_screen/search_video_overlay.dart';
-import 'package:lumox/ui/screens/search_screen/widgets/search_user_card.dart';
-import 'package:lumox/ui/screens/search_screen/widgets/search_video_card.dart';
 import 'package:lumox/ui/widgets/logout_button.dart';
-import 'package:lumox/ui/widgets/overlays/follow_button.dart';
+import 'package:lumox/ui/widgets/overlays/buttons/follow_button.dart';
 
 import '../../base_logic.dart';
 import '../../logic/local_storage/local_seen_service.dart';
 import '../misc/basic_player.dart';
 import '../misc/profile_image_picker.dart';
 import '../misc/rolling_digit_counter.dart';
+import '../search_screen/search_query.dart';
+import '../search_screen/search_video_overlay.dart';
+import '../search_screen/widgets/search_user_card.dart';
+import '../search_screen/widgets/search_video_card.dart';
 import '../theme/theme_ui_values.dart';
 
 class ProfileScreen extends StatefulWidget {

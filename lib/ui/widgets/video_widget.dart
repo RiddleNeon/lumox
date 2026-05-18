@@ -9,7 +9,7 @@ import '../../base_logic.dart';
 import '../../logic/local_storage/local_seen_service.dart';
 import '../../logic/repositories/video_repository.dart';
 import '../../logic/video/video.dart';
-import 'overlays/overlays.dart';
+import 'overlays/video_info/overlays.dart';
 
 class VideoItem extends StatefulWidget {
   final VideoController controller;

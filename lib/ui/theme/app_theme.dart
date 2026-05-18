@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lumox/ui/animations/slide_morph_transitions.dart';
+import 'package:lumox/ui/misc/animations/slide_morph_transitions.dart';
 
 class AppTheme {
   static const ColorScheme lightScheme = ColorScheme(
