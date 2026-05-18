@@ -1,5 +1,10 @@
 # Implemented Features
 
+> [!NOTE]
+> 
+> I collapsed the screenshots into sections below the text. you can view the screenshots by expanding the sections!
+
+
 ### Core Features
 - [x] User Authentication
 - [x] Functional Supabase Backend
@@ -68,7 +73,11 @@ For example:
 - You can't preload YouTube videos
 - Videos must load when scrolled into view
 
-//todo screenshot
+<details>
+  <summary>Screenshot: General / YouTube video player</summary>
+
+  ![Screenshot from 2026-05-18 22-06-24](https://github.com/user-attachments/assets/f23d0605-b820-4e74-b259-15f16176555d)
+</details>
 
 ---
 
@@ -76,7 +85,11 @@ For example:
 
 The videos can be commented on. You can also like comments and reply to them.
 
-<img width="637" height="311" alt="image" src="https://github.com/user-attachments/assets/ea722f5c-a4f3-473a-b24a-7517c188f10d" />
+<details>
+  <summary>Screenshot: Comments</summary>
+
+  ![image](https://github.com/user-attachments/assets/ea722f5c-a4f3-473a-b24a-7517c188f10d)
+</details>
 
 ---
 
@@ -95,7 +108,11 @@ The profile also shows:
 - Total received likes
 - Username and display name
 
-<img width="654" height="1053" alt="image" src="https://github.com/user-attachments/assets/baa10d21-611d-45c9-8c95-140dba8c1199" />
+<details>
+  <summary>Screenshot: User profile</summary>
+
+  ![Screenshot from 2026-05-18 21-59-04](https://github.com/user-attachments/assets/bf372032-29b4-497a-a8d4-d9581a73546c)
+</details>
 
 ---
 
@@ -111,10 +128,11 @@ The search results are calculated using an advanced search algorithm that uses:
 
 to determine the relevance of the search results.
 
-//todo update screenshot
+<details>
+  <summary>Screenshot: Advanced search</summary>
 
-<img width="653" height="1047" alt="image" src="https://github.com/user-attachments/assets/60d02457-a12f-465d-91a6-39778a8a4f97" />
-
+  ![Screenshot from 2026-05-18 22-00-57](https://github.com/user-attachments/assets/f3953a18-c507-4faf-a12f-1b54400716c3)
+</details>
 
 ---
 
@@ -128,12 +146,20 @@ Users can send direct messages to each other. They can:
 
 Technically, it also supports group chats, but this is not implemented in the frontend yet.
 
-<img width="657" height="1060" alt="image" src="https://github.com/user-attachments/assets/805af753-3ad8-4505-a727-d39d4f6a1040" />
+<details>
+  <summary>Screenshot: Direct messaging</summary>
+
+  ![image](https://github.com/user-attachments/assets/805af753-3ad8-4505-a727-d39d4f6a1040)
+</details>
 
 ## AI-Chatbots
 Users can chat with AI-Chatbots that are trained on specific topics. The answers are generated in the backend and only accessable to pro users. You can request access to the AI-Chatbots in the settings in the advanced tab.
 
-//todo screenshot
+<details>
+  <summary>Screenshot: AI-Chatbots</summary>
+
+  ![image](https://github.com/user-attachments/assets/59f1a4e2-3a25-4568-85cd-bd40196f1400)
+</details>
 
 ---
 
@@ -145,7 +171,11 @@ Users can customize their profiles by changing their:
 - Username
 - Bio
 
-<img width="655" height="586" alt="image" src="https://github.com/user-attachments/assets/29b53644-7968-4b1f-a08d-d76eedcee2cb" />
+<details>
+  <summary>Screenshot: Profile customisation</summary>
+
+  ![image](https://github.com/user-attachments/assets/29b53644-7968-4b1f-a08d-d76eedcee2cb)
+</details>
 
 ---
 
@@ -153,7 +183,11 @@ Users can customize their profiles by changing their:
 
 Users can choose between different themes for the platform. They can import/export their themes as JSON files or share them with the community.
 
-<img width="654" height="989" alt="image" src="https://github.com/user-attachments/assets/677d17e1-77fc-48cc-ba2e-8f24c7f69294" />
+<details>
+  <summary>Screenshot: Themes</summary>
+
+  ![image](https://github.com/user-attachments/assets/677d17e1-77fc-48cc-ba2e-8f24c7f69294)
+</details>
 
 
 ### Theme Generation System
@@ -162,7 +196,11 @@ The theme generation system allows users to create their own themes by selecting
 
 They can then save their themes and share them with the community.
 
-<img width="571" height="973" alt="image" src="https://github.com/user-attachments/assets/2f66ca33-db40-47f5-9af2-b7a153523dc9" />
+<details>
+  <summary>Screenshot: Theme generation</summary>
+
+  ![image](https://github.com/user-attachments/assets/2f66ca33-db40-47f5-9af2-b7a153523dc9)
+</details>
 
 
 ### Community Theme Marketplace
@@ -176,8 +214,11 @@ The community theme marketplace allows users to:
 
 Remixing means taking an existing theme, modifying it, and publishing it as a new theme.
 
-<img width="651" height="976" alt="image" src="https://github.com/user-attachments/assets/edc652d5-b9b3-4e02-abdc-a48b824a5272" />
+<details>
+  <summary>Screenshot: Theme marketplace</summary>
 
+  ![image](https://github.com/user-attachments/assets/edc652d5-b9b3-4e02-abdc-a48b824a5272)
+</details>
 
 ---
 
@@ -199,8 +240,11 @@ Each quest has:
 
 Connections may also have level requirements, meaning a quest must be completed multiple times before unlocking the next one.
 
-<img width="599" height="456" alt="image" src="https://github.com/user-attachments/assets/f588ad6d-7874-4f3b-8296-8a095f655e30" />
+<details>
+  <summary>Screenshot: Quest example</summary>
 
+  ![image](https://github.com/user-attachments/assets/f588ad6d-7874-4f3b-8296-8a095f655e30)
+</details>
 
 ---
 
@@ -213,6 +257,11 @@ Users can:
 - Connect quests via prerequisites
 
 //todo screenshot
+<details>
+  <summary>Screenshot: Quest managing system (todo)</summary>
+
+  ![image](https://github.com/user-attachments/assets/2064363a-867e-4970-8493-c792833f7dc2)
+</details>
 
 ---
 
@@ -231,10 +280,12 @@ Users can name each change to track what was modified and why.
 
 There is also a feature that suggests names automatically based on the changes (e.g. "Changed color to teal").
 
-<img width="653" height="459" alt="image" src="https://github.com/user-attachments/assets/82c1608c-065d-430b-9489-3b5b6b876fa7" />
- &nbsp;&nbsp;&nbsp;
-<img width="654" height="458" alt="image" src="https://github.com/user-attachments/assets/f109f991-fa90-4a55-8727-ad473141e1b6" />
+<details>
+  <summary>Screenshots: Quest version control</summary>
 
+  ![image](https://github.com/user-attachments/assets/82c1608c-065d-430b-9489-3b5b6b876fa7) &nbsp;&nbsp;&nbsp;
+  ![image](https://github.com/user-attachments/assets/f109f991-fa90-4a55-8727-ad473141e1b6)
+</details>
 
 ---
 
@@ -252,8 +303,11 @@ This helps to:
 - Create a consistent color scheme
 - Generate gradients across the quest map
 
+<details>
+  <summary>Screenshot: Dynamic quest colors</summary>
 
-<img width="850" height="520" alt="image" src="https://github.com/user-attachments/assets/34346742-5d37-4e29-b36d-50d3baac4998" />
+  ![image](https://github.com/user-attachments/assets/34346742-5d37-4e29-b36d-50d3baac4998)
+</details>
 
 ---
 
@@ -263,7 +317,11 @@ This is especially useful for large quest maps, where manual arrangement would b
 After that it uses a grid-based system to snap the quests into place and avoid overlaps. To make it look more natural, a physics-based force simulation is applied, that pushes quests apart if they are too close and pulls them together if they are too far away. 
 The result is a well-organized and visually appealing quest map that clearly shows the relationships between different topics.
 
-//todo screenshot
+<details>
+  <summary>Screenshot: Auto-layouting of quests</summary>
+
+  ![Screenshot from 2026-05-18 22-16-18](https://github.com/user-attachments/assets/d10cd90f-5083-4c02-84f5-26eca6d4feeb)
+</details>
 
 ---
 
@@ -274,13 +332,24 @@ go to the quest tree and view the topic with its context and prerequisites, whic
 
 ### Dictionary Screen
 The dictionary screen allows users to see all the terms and definitions in a list. They can also search for specific terms and filter them by category.
-//todo screenshot
+
+<details>
+  <summary>Screenshot: Dictionary screen</summary>
+
+  ![image](https://github.com/user-attachments/assets/f6230f83-9709-404d-b9a5-4659b974cd43)
+</details>
+
 
 ### Automatic Linking of Terms
 Whenever a term is mentioned in a video description, comment, or chat conversation, it is automatically linked to its corresponding dictionary entry. This allows users to quickly access the definition and related information about the term without having to leave the current context.
 So if you see a term you don't understand and its underlined, you can just click on it and view the definition or go to the quest tree.
 
-//todo screenshot
+<details>
+  <summary>Screenshot: Automatic linking of terms</summary>
+
+  ![image](https://github.com/user-attachments/assets/094b6ee5-c3ac-4d82-9f68-b2c8ce7b5441)
+</details>
+
 
 
 ---
@@ -290,7 +359,12 @@ So if you see a term you don't understand and its underlined, you can just click
 Users can report other users if they find them inappropriate. Additionally if a user uses inappropriate language in their videos, comments, or chat messages, they can be automatically flagged by the system and receive a warning. If a user receives too many reports the user is banned.
 The banned user can Appeal the ban and moderators then review the case and decide whether to lift the ban. Since i currently don't have a moderation team, the appeals are automatically accepted and the user is unbanned after a few seconds.
 
-//todo screenshot
+<details>
+  <summary>Screenshot: User moderation tools</summary>
+
+  ![image](https://github.com/user-attachments/assets/6d91587a-943e-4186-8c76-4f8d277c7241)
+</details>
+
 
 ---
 
@@ -306,8 +380,11 @@ Additional dynamic homepage cards include:
 - Continue Watching
 - Recommended for You
 
-<img width="516" height="166" alt="image" src="https://github.com/user-attachments/assets/d3cd463e-a31f-46cf-9021-5a4b66426216" />
+<details>
+  <summary>Screenshot: Daily goals</summary>
 
+  ![image](https://github.com/user-attachments/assets/d3cd463e-a31f-46cf-9021-5a4b66426216)
+</details>
 
 ---
 
@@ -320,10 +397,17 @@ The home page includes:
 - Following section (latest content from followed users)
 - Continue Watching section (videos that were started but not finished)
 
-//todo update screenshot
+<details>
+  <summary>Screenshot: Home page 1</summary>
 
-<img width="785" height="1032" alt="image" src="https://github.com/user-attachments/assets/151aa6f6-f080-45bd-bc5d-47d521c6ac22" />
+  ![image](https://github.com/user-attachments/assets/ac6646fa-4ee3-4f35-b006-d6bef2dfc58e)
+</details>
 
+<details>
+  <summary>Screenshot: Home page 2</summary>
+
+  ![image](https://github.com/user-attachments/assets/5bc5a9c3-94c6-41a3-8d4d-9faa7f99a724)
+</details>
 
 ---
 
