@@ -62,6 +62,7 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
   void preload() {
     if (loading) return;
     loading = true;
+    if (mounted) setState(() {});
     _preload();
   }
 
@@ -83,6 +84,7 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
       await _tryOpenInitialChat();
     } finally {
       loading = false;
+      if (mounted) setState(() {});
     }
   }
 

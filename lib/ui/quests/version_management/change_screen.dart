@@ -14,15 +14,17 @@ class QuestChangeScreen extends StatelessWidget {
     return ListenableBuilder(
       listenable: changeManager,
       builder: (context, _) {
+        final isPushing = changeManager.isPushing;
         final pending = changeManager.pendingChanges;
         final skipped = changeManager.skippedChanges;
         final undone = changeManager.redoChanges;
+        final pushingChanges = changeManager.pushingChanges;
 
         final conflictedPending = changeManager.allConflictedPending;
         final conflictedSkipped = changeManager.allConflictedSkipped;
         final hasConflicts = conflictedPending.isNotEmpty || conflictedSkipped.isNotEmpty;
 
-        final isEmpty = pending.isEmpty && skipped.isEmpty && undone.isEmpty;
+        final isEmpty = !isPushing && pending.isEmpty && skipped.isEmpty && undone.isEmpty;
 
         void showDetails(QuestChange change, _TileState state, DateTime? ts, String? conflict) {
           showModalBottomSheet(
@@ -33,127 +35,313 @@ class QuestChangeScreen extends StatelessWidget {
           );
         }
 
-        return Scaffold(
+        return PopScope(
+          canPop: !isPushing,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop || !isPushing) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please wait while the changes are being sent to the server.')),
+            );
+          },
+          child: Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
           appBar: AppBar(
-            title: Text(pending.isEmpty ? 'Change History' : '${pending.length} Pending'),
+            title: Text(isPushing ? 'Send changes...' : pending.isEmpty ? 'Change History' : '${pending.length} Pending'),
             backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
             actions: [
-              IconButton(tooltip: 'Undo', icon: const Icon(Icons.undo), onPressed: changeManager.canUndo ? changeManager.undo : null),
-              IconButton(tooltip: 'Redo', icon: const Icon(Icons.redo), onPressed: changeManager.canRedo ? changeManager.redo : null),
+              IconButton(tooltip: 'Undo', icon: const Icon(Icons.undo), onPressed: changeManager.canUndo && !isPushing ? changeManager.undo : null),
+              IconButton(tooltip: 'Redo', icon: const Icon(Icons.redo), onPressed: changeManager.canRedo && !isPushing ? changeManager.redo : null),
             ],
           ),
           body: Column(
             children: [
-              if (hasConflicts) _ConflictBanner(conflictCount: conflictedPending.length),
+              if (isPushing)
+                _PushBanner(
+                  completed: changeManager.pushCompletedCount,
+                  total: changeManager.pushTotalCount,
+                  remaining: changeManager.pushRemainingCount,
+                  currentLabel: changeManager.currentPushChange?.updateMessage,
+                )
+              else if (hasConflicts)
+                _ConflictBanner(conflictCount: conflictedPending.length),
               Expanded(
-                child: isEmpty
-                    ? const _EmptyState()
-                    : CustomScrollView(
-                        slivers: [
-                          if (pending.isNotEmpty) ...[
-                            const SliverToBoxAdapter(
-                              child: _SectionHeader(label: 'Pending Queue', icon: Icons.pending_actions),
-                            ),
-                            SliverReorderableList(
-                              itemCount: pending.length,
-                              onReorder: changeManager.reorderPending,
-                              itemBuilder: (context, index) {
-                                final change = pending[index];
-                                final ts = changeManager.recordedAt(change);
-                                final isConflicted = conflictedPending.contains(change);
-                                final state = isConflicted ? _TileState.conflict : _TileState.active;
+                child: isPushing
+                    ? _buildPushProgressView(context, pushingChanges)
+                    : isEmpty
+                        ? const _EmptyState()
+                        : CustomScrollView(
+                            slivers: [
+                              if (pending.isNotEmpty) ...[
+                                const SliverToBoxAdapter(
+                                  child: _SectionHeader(label: 'Pending Queue', icon: Icons.pending_actions),
+                                ),
+                                SliverReorderableList(
+                                  itemCount: pending.length,
+                                  onReorder: changeManager.reorderPending,
+                                  itemBuilder: (context, index) {
+                                    final change = pending[index];
+                                    final ts = changeManager.recordedAt(change);
+                                    final isConflicted = conflictedPending.contains(change);
+                                    final state = isConflicted ? _TileState.conflict : _TileState.active;
 
-                                return ReorderableDragStartListener(
-                                  key: ObjectKey(change),
-                                  index: index,
-                                  child: _ChangeTimelineTile(
-                                    change: change,
-                                    timestamp: ts,
-                                    state: state,
-                                    isFirst: index == 0,
-                                    isLast: index == pending.length - 1 && undone.isEmpty && skipped.isEmpty,
-                                    conflictReason: isConflicted ? _getConflictReason(change, skipped) : null,
-                                    onTap: () => showDetails(change, state, ts, isConflicted ? _getConflictReason(change, skipped) : null),
-                                    onToggle: () => changeManager.skipChange(change),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                          if (undone.isNotEmpty) ...[
-                            const SliverToBoxAdapter(
-                              child: _SectionHeader(label: 'Recently Undone', icon: Icons.history),
-                            ),
-                            SliverList.builder(
-                              itemCount: undone.length,
-                              itemBuilder: (context, index) {
-                                final change = undone[undone.length - 1 - index];
-                                final ts = changeManager.recordedAt(change);
-                                return _ChangeTimelineTile(
-                                  key: ObjectKey(change),
-                                  change: change,
-                                  timestamp: ts,
-                                  state: _TileState.undone,
-                                  isFirst: index == 0 && pending.isEmpty,
-                                  isLast: index == undone.length - 1 && skipped.isEmpty,
-                                  onTap: () => showDetails(change, _TileState.undone, ts, null),
-                                  onToggle: null,
-                                );
-                              },
-                            ),
-                          ],
-                          if (skipped.isNotEmpty) ...[
-                            const SliverToBoxAdapter(
-                              child: _SectionHeader(label: 'Skipped Changes', icon: Icons.visibility_off_outlined),
-                            ),
-                            SliverList.builder(
-                              itemCount: skipped.length,
-                              itemBuilder: (context, index) {
-                                final change = skipped[index];
-                                final ts = changeManager.recordedAt(change);
-                                final isConflicted = conflictedSkipped.contains(change);
-                                final state = isConflicted ? _TileState.conflictSkipped : _TileState.skipped;
+                                    return ReorderableDragStartListener(
+                                      key: ObjectKey(change),
+                                      index: index,
+                                      child: _ChangeTimelineTile(
+                                        change: change,
+                                        timestamp: ts,
+                                        state: state,
+                                        isFirst: index == 0,
+                                        isLast: index == pending.length - 1 && undone.isEmpty && skipped.isEmpty,
+                                        conflictReason: isConflicted ? _getConflictReason(change, skipped) : null,
+                                        onTap: () => showDetails(change, state, ts, isConflicted ? _getConflictReason(change, skipped) : null),
+                                        onToggle: () => changeManager.skipChange(change),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                              if (undone.isNotEmpty) ...[
+                                const SliverToBoxAdapter(
+                                  child: _SectionHeader(label: 'Recently Undone', icon: Icons.history),
+                                ),
+                                SliverList.builder(
+                                  itemCount: undone.length,
+                                  itemBuilder: (context, index) {
+                                    final change = undone[undone.length - 1 - index];
+                                    final ts = changeManager.recordedAt(change);
+                                    return _ChangeTimelineTile(
+                                      key: ObjectKey(change),
+                                      change: change,
+                                      timestamp: ts,
+                                      state: _TileState.undone,
+                                      isFirst: index == 0 && pending.isEmpty,
+                                      isLast: index == undone.length - 1 && skipped.isEmpty,
+                                      onTap: () => showDetails(change, _TileState.undone, ts, null),
+                                      onToggle: null,
+                                    );
+                                  },
+                                ),
+                              ],
+                              if (skipped.isNotEmpty) ...[
+                                const SliverToBoxAdapter(
+                                  child: _SectionHeader(label: 'Skipped Changes', icon: Icons.visibility_off_outlined),
+                                ),
+                                SliverList.builder(
+                                  itemCount: skipped.length,
+                                  itemBuilder: (context, index) {
+                                    final change = skipped[index];
+                                    final ts = changeManager.recordedAt(change);
+                                    final isConflicted = conflictedSkipped.contains(change);
+                                    final state = isConflicted ? _TileState.conflictSkipped : _TileState.skipped;
 
-                                return _ChangeTimelineTile(
-                                  key: ObjectKey(change),
-                                  change: change,
-                                  timestamp: ts,
-                                  state: state,
-                                  isFirst: index == 0 && pending.isEmpty && undone.isEmpty,
-                                  isLast: index == skipped.length - 1,
-                                  conflictReason: isConflicted ? _getConflictCause(change, changeManager.conflictsOf(change)) : null,
-                                  onTap: () => showDetails(change, state, ts, null),
-                                  onToggle: () => changeManager.unskipChange(change),
-                                );
-                              },
-                            ),
-                          ],
-                          const SliverToBoxAdapter(child: SizedBox(height: 100)),
-                        ],
-                      ),
+                                    return _ChangeTimelineTile(
+                                      key: ObjectKey(change),
+                                      change: change,
+                                      timestamp: ts,
+                                      state: state,
+                                      isFirst: index == 0 && pending.isEmpty && undone.isEmpty,
+                                      isLast: index == skipped.length - 1,
+                                      conflictReason: isConflicted ? _getConflictCause(change, changeManager.conflictsOf(change)) : null,
+                                      onTap: () => showDetails(change, state, ts, null),
+                                      onToggle: () => changeManager.unskipChange(change),
+                                    );
+                                  },
+                                ),
+                              ],
+                              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                            ],
+                          ),
               ),
-              _buildBottomBar(context, pending, hasConflicts),
+              _buildBottomBar(context, pending, hasConflicts, isPushing),
             ],
+          ),
           ),
         );
       },
     );
   }
 
-  Widget _buildBottomBar(BuildContext context, List<QuestChange> pending, bool hasConflicts) {
+  Widget _buildBottomBar(BuildContext context, List<QuestChange> pending, bool hasConflicts, bool isPushing) {
+    final total = changeManager.pushTotalCount;
+    final completed = changeManager.pushCompletedCount;
+    final remaining = changeManager.pushRemainingCount;
+
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)],
       ),
-      child: FilledButton.icon(
-        style: FilledButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: hasConflicts ? Theme.of(context).colorScheme.error : null),
-        onPressed: pending.isNotEmpty && !hasConflicts ? changeManager.push : null,
-        icon: const Icon(Icons.cloud_upload_outlined),
-        label: Text(hasConflicts ? 'Resolve Conflicts' : 'Push Changes'),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isPushing) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(context.uiRadiusSm),
+              child: LinearProgressIndicator(value: total == 0 ? null : changeManager.pushProgress),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              total == 0 ? 'Pushing changes...' : '$completed of $total sent · $remaining still open',
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+            const SizedBox(height: 12),
+          ],
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(double.infinity, 50),
+              backgroundColor: hasConflicts ? Theme.of(context).colorScheme.error : null,
+            ),
+            onPressed: isPushing ? null : (pending.isNotEmpty && !hasConflicts ? changeManager.push : null),
+            icon: isPushing
+                ? SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.onPrimary),
+                  )
+                : const Icon(Icons.cloud_upload_outlined),
+            label: Text(isPushing ? 'Sending...' : hasConflicts ? 'Resolve Conflicts' : 'Push Changes'),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildPushProgressView(BuildContext context, List<QuestChange> pushingChanges) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final total = changeManager.pushTotalCount;
+    final completed = changeManager.pushCompletedCount;
+    final remaining = changeManager.pushRemainingCount;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(context.uiRadiusMd),
+            border: Border.all(color: cs.outlineVariant),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2.6, value: total == 0 ? null : changeManager.pushProgress),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Changes are being pushed to the server',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                total == 0 ? 'Please wait...' : '$completed of $total sent · $remaining remaining',
+                style: theme.textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                total == 0
+                    ? 'The changes are being prepared.'
+                    : 'please only exit the site when the changes are done.',
+                style: theme.textTheme.bodySmall?.copyWith(color: cs.outline),
+              ),
+              if (changeManager.currentPushChange != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Current: ${changeManager.currentPushChange!.updateMessage}',
+                  style: theme.textTheme.labelLarge?.copyWith(color: cs.primary, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text('', style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        if (pushingChanges.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(context.uiRadiusMd),
+              border: Border.all(color: cs.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2.4, value: null, color: cs.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Your upload is being prepared...',
+                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          ...List.generate(pushingChanges.length, (index) {
+            final change = pushingChanges[index];
+            final isDone = index < completed;
+            final isCurrent = !isDone && index == completed;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isCurrent ? cs.primaryContainer.withValues(alpha: 0.35) : cs.surface,
+                  borderRadius: BorderRadius.circular(context.uiRadiusMd),
+                  border: Border.all(color: isCurrent ? cs.primary.withValues(alpha: 0.35) : cs.outlineVariant),
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 24,
+                      child: isDone
+                          ? Icon(Icons.check_circle, color: cs.primary, size: 18)
+                          : isCurrent
+                              ? SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+                                )
+                              : Icon(Icons.schedule, color: cs.outline, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(change.updateMessage, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          Text(
+                            change.runtimeType.toString(),
+                            style: theme.textTheme.bodySmall?.copyWith(color: cs.outline),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+      ],
     );
   }
 
@@ -577,6 +765,58 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) => const Center(child: Text("Everything is up to date!"));
 }
 
+class _PushBanner extends StatelessWidget {
+  final int completed;
+  final int total;
+  final int remaining;
+  final String? currentLabel;
+
+  const _PushBanner({required this.completed, required this.total, required this.remaining, this.currentLabel});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      color: cs.primaryContainer,
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2.4, value: total == 0 ? null : completed / total),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  total == 0 ? 'Changes are being sent...' : '$completed of $total done',
+                  style: TextStyle(color: cs.onPrimaryContainer, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            total == 0 ? 'Hang on for a moment while your changes are being sent.' : '$remaining still open',
+            style: TextStyle(color: cs.onPrimaryContainer.withValues(alpha: 0.8), fontSize: 12),
+          ),
+          if (currentLabel != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Current: $currentLabel',
+              style: TextStyle(color: cs.onPrimaryContainer.withValues(alpha: 0.75), fontSize: 12),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _ConflictBanner extends StatelessWidget {
   final int conflictCount;
 
@@ -588,10 +828,16 @@ class _ConflictBanner extends StatelessWidget {
       color: Theme.of(context).colorScheme.errorContainer,
       width: double.infinity,
       padding: const EdgeInsets.all(10),
-      child: Text(
-        "⚠️ Resolve $conflictCount conflict(s) before pushing!",
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer, fontWeight: FontWeight.bold),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_rounded),
+          const SizedBox(width: 10),
+          Text(
+            "Resolve $conflictCount conflict(s) before pushing!",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer, fontWeight: FontWeight.bold),
+          ),
+        ],
       ),
     );
   }

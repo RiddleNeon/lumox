@@ -500,6 +500,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
   Future<void> _preloadMore({int limit = 30}) async {
     if (!moreMessagesAvailable || preloading) return;
     preloading = true;
+    if (mounted) setState(() {});
 
     try {
       final wasEmpty = _messages.isEmpty;
@@ -523,6 +524,7 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
       debugPrint('preload messages failed: $e');
     } finally {
       preloading = false;
+      if (mounted) setState(() {});
     }
   }
 

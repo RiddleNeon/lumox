@@ -29,6 +29,14 @@ class QuestChangeManager with ChangeNotifier {
   /// Stack of undone changes available for global redo.
   final List<QuestChange> _redoStack = [];
 
+  bool _isPushing = false;
+
+  List<QuestChange> _pushBatch = [];
+
+  int _pushCompleted = 0;
+  
+  QuestChange? _currentPushChange;
+
   bool get hasPendingChanges => _pendingChanges.isNotEmpty;
 
   bool get canUndo => _undoStack.isNotEmpty;
@@ -36,6 +44,20 @@ class QuestChangeManager with ChangeNotifier {
   bool get canRedo => _redoStack.isNotEmpty;
 
   int get pendingCount => _pendingChanges.length;
+
+  bool get isPushing => _isPushing;
+
+  List<QuestChange> get pushingChanges => List.unmodifiable(_pushBatch);
+
+  int get pushTotalCount => _pushBatch.length;
+
+  int get pushCompletedCount => _pushCompleted;
+
+  int get pushRemainingCount => _pushBatch.length - _pushCompleted;
+
+  double get pushProgress => _pushBatch.isEmpty ? 0 : _pushCompleted / _pushBatch.length;
+
+  QuestChange? get currentPushChange => _currentPushChange;
 
   /// Stores the wall-clock time at which each change was recorded.
   /// Using an Expando avoids touching the QuestChange class hierarchy.
@@ -294,18 +316,45 @@ class QuestChangeManager with ChangeNotifier {
   /// Pending list and skipped list are cleared optimistically before network
   /// calls begin. If a push fails the caller is responsible for error handling.
   Future<void> push() async {
-    if (_pendingChanges.isEmpty) return;
+    if (_pendingChanges.isEmpty || _isPushing) return;
 
     final batch = List<QuestChange>.from(_pendingChanges);
+    final collapsed = _collapse(batch);
     _pendingChanges.clear();
     _undoStack.clear();
     _redoStack.clear();
 
+    _isPushing = true;
+    _pushBatch = collapsed;
+    _pushCompleted = 0;
+    _currentPushChange = null;
+
     notifyListeners();
 
-    final collapsed = _collapse(batch);
-    for (final change in collapsed) {
-      await change.push(repo, questSystem);
+    try {
+      for (var i = 0; i < collapsed.length; i++) {
+        final change = collapsed[i];
+        _currentPushChange = change;
+        notifyListeners();
+
+        await change.push(repo, questSystem);
+
+        _pushCompleted = i + 1;
+        notifyListeners();
+      }
+    } catch (_) {
+      final remaining = collapsed.sublist(_pushCompleted);
+      if (remaining.isNotEmpty) {
+        _pendingChanges.addAll(remaining);
+        _undoStack.addAll(remaining);
+      }
+      rethrow;
+    } finally {
+      _isPushing = false;
+      _pushBatch = [];
+      _pushCompleted = 0;
+      _currentPushChange = null;
+      notifyListeners();
     }
   }
 
