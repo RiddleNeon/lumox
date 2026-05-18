@@ -14,6 +14,7 @@ import 'package:lumox/logic/quests/quest_connection.dart';
 import 'package:lumox/logic/quests/quest_system.dart';
 import 'package:lumox/logic/repositories/quest_repository.dart';
 import 'package:lumox/ui/theme/theme_ui_values.dart';
+import 'package:lumox/util/extensions/num_distance.dart';
 
 import '../../../../logic/quests/quest.dart';
 import 'pan_background.dart';
@@ -78,6 +79,11 @@ class PanWidgetState extends State<PanWidget> with TickerProviderStateMixin {
       ..translate(tx / scale, ty / scale);
   }
 
+  
+  double? lastTx;
+  double? lastTy;
+  double? lastScale;
+  Rect? lastViewportRect;
   void _syncOverlayViewport() {
     if (!mounted) return;
 
@@ -89,7 +95,15 @@ class PanWidgetState extends State<PanWidget> with TickerProviderStateMixin {
     final tx = _controller.value.entry(0, 3);
     final ty = _controller.value.entry(1, 3);
     final viewportRect = Rect.fromLTWH(-tx / scale, -ty / scale, size.width / scale, size.height / scale);
-    _questBubbleOverlayKey.currentState?.onScaleChange(scale, viewportRect);
+    
+    if(lastTx == null || lastTy == null || lastTx!.distanceTo(tx) > (10/scale) || lastTy!.distanceTo(ty) > (10/scale) || lastScale == null || lastScale!.distanceTo(scale) > 0.01 || lastViewportRect == null || lastViewportRect!.width.distanceTo(viewportRect.width) > 1 || lastViewportRect!.height.distanceTo(viewportRect.height) > 1) {
+      _questBubbleOverlayKey.currentState?.onScaleChange(scale, viewportRect);
+      lastScale = scale;
+      lastViewportRect = viewportRect;
+      lastTx = tx;
+      lastTy = ty;
+    }
+    
     widget.onTransformChanged?.call(Matrix4.copy(_controller.value));
   }
 
@@ -200,7 +214,6 @@ class PanWidgetState extends State<PanWidget> with TickerProviderStateMixin {
       _refreshHoveredConnection();
     });
     
-    print("NEW PAN WIDGET STATE CREATED: ${DateTime.now().toIso8601String()}");
   }
 
   @override

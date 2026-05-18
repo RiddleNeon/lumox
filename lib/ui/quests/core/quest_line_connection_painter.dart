@@ -91,7 +91,6 @@ class QuestLineConnectionPainter extends CustomPainter {
     for (final quest in questSystem.quests) {
       for (final prereq in questSystem.prerequisitesOf(quest.id)) {
         _buildAndStoreEntry(prereq.id, quest.id);
-        print("found connection from ${prereq.id} to ${quest.id}");
       }
     }
   }

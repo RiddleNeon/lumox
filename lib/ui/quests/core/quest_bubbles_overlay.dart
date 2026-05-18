@@ -42,7 +42,6 @@ class QuestBubblesOverlayState extends State<QuestBubblesOverlay>
   void initState() {
     super.initState();
     
-    print("NEW STATE!!!! subject: ${questSystem.subject}, current quest connections: ${questSystem.getConnections().length}, quests: ${questSystem.quests.length}");
 
     _lineAnimCtrl =
     AnimationController(vsync: this, duration: const Duration(seconds: 2))
@@ -68,7 +67,6 @@ class QuestBubblesOverlayState extends State<QuestBubblesOverlay>
   @override
   void didUpdateWidget(covariant QuestBubblesOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
-
     if (oldWidget.questSystem != widget.questSystem) {
       oldWidget.questSystem.removeListener(_onQuestSystemChanged);
       questSystem.addListener(_onQuestSystemChanged);
@@ -102,7 +100,6 @@ class QuestBubblesOverlayState extends State<QuestBubblesOverlay>
   }
   
   void _onQuestSystemChanged() {
-    print("Quest system changed, recomputing world bounds and colors...");
     final newBounds = _computeWorldBounds();
     final boundsChanged = newBounds != _worldBounds;
 

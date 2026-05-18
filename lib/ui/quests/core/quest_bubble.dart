@@ -35,7 +35,7 @@ class QuestBubble extends StatelessWidget {
         : glowColor.withValues(alpha: 0.45);
 
     final borderWidth = (isConnectionSource || isConnectionTarget) ? 2.5 : 1.5;
-
+    
     return Stack(
       clipBehavior: Clip.none,
       children: [
