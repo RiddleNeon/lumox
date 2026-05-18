@@ -19,44 +19,71 @@ enum ChatAttachmentAction { fileImage, urlImage, cameraImage, deepLink }
 typedef ChatImageUpload =
     Future<String> Function(Uint8List bytes, {String? filename});
 
+Future<T?> _showAttachmentSheet<T>(
+  BuildContext context, {
+  required WidgetBuilder builder,
+}) {
+  final cs = Theme.of(context).colorScheme;
+  return showModalBottomSheet<T>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: cs.surface,
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(context.uiRadiusLg),
+      ),
+      side: BorderSide(color: cs.outlineVariant),
+    ),
+    clipBehavior: Clip.antiAlias,
+    builder: builder,
+  );
+}
+
 Future<ChatAttachmentAction?> showChatAttachmentActionSheet(
   BuildContext context,
 ) {
-  return showModalBottomSheet<ChatAttachmentAction>(
-    context: context,
-    useSafeArea: true,
-    builder: (ctx) {
-      return SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.upload_file_outlined),
-              title: const Text('Add image from file'),
-              onTap: () =>
-                  Navigator.of(ctx).pop(ChatAttachmentAction.fileImage),
-            ),
-            ListTile(
-              leading: const Icon(Icons.link_outlined),
-              title: const Text('Add image via URL'),
-              onTap: () => Navigator.of(ctx).pop(ChatAttachmentAction.urlImage),
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Add image from camera'),
-              onTap: () =>
-                  Navigator.of(ctx).pop(ChatAttachmentAction.cameraImage),
-            ),
-            ListTile(
-              leading: const Icon(Icons.route_outlined),
-              title: const Text('Send Lumox Action'),
-              onTap: () => Navigator.of(ctx).pop(ChatAttachmentAction.deepLink),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      );
-    },
+  return _showAttachmentSheet<ChatAttachmentAction>(
+    context,
+    builder: (ctx) => _AttachmentSheetShell(
+      icon: Icons.attachment_outlined,
+      title: 'Add to chat',
+      subtitle: 'Pick a clean inline attachment that fits the conversation.',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _AttachmentOptionCard(
+            icon: Icons.upload_file_outlined,
+            title: 'Add image from file',
+            subtitle: 'Choose from your device storage.',
+            onTap: () => Navigator.of(ctx).pop(ChatAttachmentAction.fileImage),
+          ),
+          const SizedBox(height: 10),
+          _AttachmentOptionCard(
+            icon: Icons.link_outlined,
+            title: 'Add image via URL',
+            subtitle: 'Paste a direct image or Cloudinary link.',
+            onTap: () => Navigator.of(ctx).pop(ChatAttachmentAction.urlImage),
+          ),
+          const SizedBox(height: 10),
+          _AttachmentOptionCard(
+            icon: Icons.camera_alt_outlined,
+            title: 'Add image from camera',
+            subtitle: 'Capture something on the fly.',
+            onTap: () =>
+                Navigator.of(ctx).pop(ChatAttachmentAction.cameraImage),
+          ),
+          const SizedBox(height: 10),
+          _AttachmentOptionCard(
+            icon: Icons.route_outlined,
+            title: 'Send Lumox Action',
+            subtitle: 'Build a deep link for an in-app action.',
+            onTap: () => Navigator.of(ctx).pop(ChatAttachmentAction.deepLink),
+          ),
+        ],
+      ),
+    ),
   );
 }
 
@@ -64,13 +91,11 @@ Future<String?> showChatFileImageUploadSheet(
   BuildContext context, {
   required ChatImageUpload uploadImage,
 }) {
-  return showModalBottomSheet<String>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
+  return _showAttachmentSheet<String>(
+    context,
     builder: (_) => _ImageUploadSheet(
       title: 'Upload from File',
-      actionLabel: 'choose File',
+      actionLabel: 'Choose File',
       icon: Icons.upload_file_outlined,
       uploadImage: uploadImage,
       pickMode: _ImagePickMode.file,
@@ -82,13 +107,11 @@ Future<String?> showChatCameraImageUploadSheet(
   BuildContext context, {
   required ChatImageUpload uploadImage,
 }) {
-  return showModalBottomSheet<String>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
+  return _showAttachmentSheet<String>(
+    context,
     builder: (_) => _ImageUploadSheet(
-      title: 'Camera-Upload',
-      actionLabel: kIsWeb ? 'capture photo' : 'choose from your gallery',
+      title: 'Camera Upload',
+      actionLabel: kIsWeb ? 'Capture Photo' : 'Choose from Gallery',
       icon: Icons.camera_alt_outlined,
       uploadImage: uploadImage,
       pickMode: _ImagePickMode.camera,
@@ -97,20 +120,238 @@ Future<String?> showChatCameraImageUploadSheet(
 }
 
 Future<String?> showChatUrlImageUploadSheet(BuildContext context) {
-  return showModalBottomSheet<String>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
+  return _showAttachmentSheet<String>(
+    context,
     builder: (_) => const _UrlImageSheet(),
   );
 }
 
 Future<String?> showChatDeepLinkBuilderSheet(BuildContext context) {
-  return showModalBottomSheet<String>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
+  return _showAttachmentSheet<String>(
+    context,
     builder: (_) => const _DeepLinkBuilderSheet(),
+  );
+}
+
+class _AttachmentSheetShell extends StatelessWidget {
+  const _AttachmentSheetShell({
+    required this.icon,
+    required this.title,
+    required this.child,
+    this.subtitle,
+    this.onBack,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Widget child;
+  final VoidCallback? onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(context.uiRadiusLg),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest,
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(context.uiRadiusLg),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                  child: Column(
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 44,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: cs.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(context.uiRadiusMd),
+                            ),
+                            child: Icon(icon, color: cs.primary),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  title,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleLarge
+                                      ?.copyWith(fontWeight: FontWeight.w700),
+                                ),
+                                if (subtitle != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    subtitle!,
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                          color: cs.onSurfaceVariant,
+                                        ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (onBack != null)
+                            IconButton.filledTonal(
+                              onPressed: onBack,
+                              icon: const Icon(Icons.arrow_back_rounded),
+                              tooltip: 'Back',
+                            )
+                          else
+                            IconButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              icon: const Icon(Icons.close_rounded),
+                              tooltip: 'Close',
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Container(
+                color: cs.surfaceContainerLow,
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                child: child,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AttachmentOptionCard extends StatelessWidget {
+  const _AttachmentOptionCard({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.surfaceContainer,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(context.uiRadiusMd),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(context.uiRadiusMd),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(context.uiRadiusMd),
+                ),
+                child: Icon(icon, color: cs.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(Icons.arrow_forward_rounded, color: cs.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+InputDecoration _attachmentInputDecoration(
+  BuildContext context, {
+  required String hintText,
+  Widget? prefixIcon,
+  Widget? suffixIcon,
+}) {
+  final cs = Theme.of(context).colorScheme;
+  final radius = BorderRadius.circular(context.uiRadiusMd);
+  return InputDecoration(
+    hintText: hintText,
+    prefixIcon: prefixIcon,
+    suffixIcon: suffixIcon,
+    filled: true,
+    fillColor: cs.surfaceContainerHighest,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    border: OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: BorderSide(color: cs.outlineVariant),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: BorderSide(color: cs.outlineVariant),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: BorderSide(color: cs.primary, width: 1.5),
+    ),
   );
 }
 
@@ -185,68 +426,80 @@ class _ImageUploadSheetState extends State<_ImageUploadSheet> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 16),
-              Center(
-                child: Container(
-                  width: 180,
-                  height: 180,
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(context.uiRadiusMd),
-                    border: Border.all(color: cs.outlineVariant),
-                  ),
-                  child: _pickedBytes == null
-                      ? Icon(widget.icon, size: 48, color: cs.onSurfaceVariant)
-                      : ClipRRect(
-                          borderRadius: BorderRadius.circular(
-                            context.uiRadiusMd,
-                          ),
-                          child: Image.memory(_pickedBytes!, fit: BoxFit.cover),
-                        ),
+    return _AttachmentSheetShell(
+      icon: widget.icon,
+      title: widget.title,
+      subtitle: widget.pickMode == _ImagePickMode.camera
+          ? 'Capture or choose a photo, preview it, and send it.'
+          : 'Choose an image, preview it, and send it into chat.',
+      onBack: () => Navigator.of(context).pop(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Preview',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurfaceVariant,
                 ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: _pickImage,
-                icon: Icon(widget.icon),
-                label: Text(widget.actionLabel),
-              ),
-              const SizedBox(height: 8),
-              FilledButton.icon(
-                onPressed: (_pickedBytes == null || _uploading)
-                    ? null
-                    : _confirmUpload,
-                icon: _uploading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.send_rounded),
-                label: Text(
-                  _uploading ? 'Uploading Image...' : 'Send!',
-                ),
-              ),
-            ],
           ),
-        ),
+          const SizedBox(height: 10),
+          Container(
+            height: 180,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainer,
+              borderRadius: BorderRadius.circular(context.uiRadiusMd),
+            ),
+            child: _pickedBytes == null
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 72,
+                          height: 72,
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerHigh,
+                            borderRadius:
+                                BorderRadius.circular(context.uiRadiusLg),
+                          ),
+                          child: Icon(widget.icon, size: 34, color: cs.primary),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'No image selected yet',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(context.uiRadiusMd),
+                    child: Image.memory(_pickedBytes!, fit: BoxFit.cover),
+                  ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: _pickImage,
+            icon: Icon(widget.icon),
+            label: Text(widget.actionLabel),
+          ),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: (_pickedBytes == null || _uploading) ? null : _confirmUpload,
+            icon: _uploading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.send_rounded),
+            label: Text(_uploading ? 'Uploading Image...' : 'Send Image'),
+          ),
+        ],
       ),
     );
   }
@@ -297,73 +550,94 @@ class _UrlImageSheetState extends State<_UrlImageSheet> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Append Image-URL',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _controller,
-                keyboardType: TextInputType.url,
-                decoration: const InputDecoration(hintText: 'https://...'),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                height: 180,
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(context.uiRadiusMd),
-                  border: Border.all(color: cs.outlineVariant),
+    return _AttachmentSheetShell(
+      icon: Icons.link_outlined,
+      title: 'Append Image URL',
+      subtitle: 'Paste a direct image link, check the preview, then send it.',
+      onBack: () => Navigator.of(context).pop(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _controller,
+            keyboardType: TextInputType.url,
+            decoration: _attachmentInputDecoration(
+              context,
+              hintText: 'https://...',
+              prefixIcon: const Icon(Icons.link_rounded),
+              suffixIcon: _isValidImageUrl
+                  ? Icon(Icons.check_circle_rounded, color: cs.primary)
+                  : Icon(Icons.info_outline_rounded, color: cs.onSurfaceVariant),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              _isValidImageUrl
+                  ? 'Looks like a direct image link.'
+                  : 'Use a URL that ends in .png, .jpg, .jpeg, .gif, .webp, .bmp, .svg, or a Cloudinary host.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Live preview',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurfaceVariant,
                 ),
-                child: _isValidImageUrl
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(context.uiRadiusMd),
-                        child: CachedNetworkImage(
-                          imageUrl: _url,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, _, _) => Center(
-                            child: Icon(
-                              Icons.broken_image_outlined,
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                          placeholder: (_, _) => const Center(
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        ),
-                      )
-                    : Center(
-                        child: Text(
-                          'Enter a valid image url (ending with .png, .jpg, .jpeg, .gif, .webp, .bmp, .svg or from cloudinary)',
-                          style: TextStyle(color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            height: 180,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainer,
+              borderRadius: BorderRadius.circular(context.uiRadiusMd),
+            ),
+            child: _isValidImageUrl
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(context.uiRadiusMd),
+                    child: CachedNetworkImage(
+                      imageUrl: _url,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, _, _) => Center(
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          color: cs.onSurfaceVariant,
                         ),
                       ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: _isValidImageUrl
-                    ? () => Navigator.of(context).pop(_url)
-                    : null,
-                icon: const Icon(Icons.send_rounded),
-                label: const Text('Send as Image URL'),
-              ),
-            ],
+                      placeholder: (_, _) => Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: cs.primary,
+                        ),
+                      ),
+                    ),
+                  )
+                : Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Text(
+                        'Paste a direct image URL to see the preview here.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                      ),
+                    ),
+                  ),
           ),
-        ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: _isValidImageUrl ? () => Navigator.of(context).pop(_url) : null,
+            icon: const Icon(Icons.send_rounded),
+            label: const Text('Send as Image URL'),
+          ),
+        ],
       ),
     );
   }
@@ -426,10 +700,8 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
   }
 
   Future<void> _pickVideo() async {
-    final selected = await showModalBottomSheet<Video>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
+    final selected = await _showAttachmentSheet<Video>(
+      context,
       builder: (_) => const _VideoPickerSheet(),
     );
     if (!mounted || selected == null) return;
@@ -437,10 +709,8 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
   }
 
   Future<void> _pickProfile() async {
-    final selected = await showModalBottomSheet<UserProfile>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
+    final selected = await _showAttachmentSheet<UserProfile>(
+      context,
       builder: (_) => const _ProfilePickerSheet(),
     );
     if (!mounted || selected == null) return;
@@ -448,10 +718,8 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
   }
 
   Future<void> _pickTheme() async {
-    final selected = await showModalBottomSheet<CustomThemeModel>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
+    final selected = await _showAttachmentSheet<CustomThemeModel>(
+      context,
       builder: (_) => _ThemePickerSheet(initialTab: _themeTab),
     );
     if (!mounted || selected == null) return;
@@ -471,81 +739,84 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Deep-Link Builder',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 14),
-              DropdownButtonFormField<_DeepLinkType>(
-                key: ValueKey(_type),
-                initialValue: _type,
-                items: const [
-                  DropdownMenuItem(
-                    value: _DeepLinkType.feed,
-                    child: Text('video'),
-                  ),
-                  DropdownMenuItem(
-                    value: _DeepLinkType.profile,
-                    child: Text('profile'),
-                  ),
-                  DropdownMenuItem(
-                    value: _DeepLinkType.chat,
-                    child: Text('chat with user'),
-                  ),
-                  DropdownMenuItem(
-                    value: _DeepLinkType.themes,
-                    child: Text('theme'),
-                  ),
-                  DropdownMenuItem(
-                    value: _DeepLinkType.search,
-                    child: Text('search'),
-                  ),
-                  DropdownMenuItem(
-                    value: _DeepLinkType.quests,
-                    child: Text('quests'),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  setState(() => _type = value);
-                },
-              ),
-              const SizedBox(height: 14),
-              _buildTypeOptions(),
-              const SizedBox(height: 12),
-              SelectableText(
-                _buildCurrentRoute(),
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: _canSubmit()
-                    ? () => Navigator.of(context).pop(_buildCurrentRoute())
-                    : null,
-                icon: const Icon(Icons.send_rounded),
-                label: const Text('Send Link to Action'),
-              ),
-            ],
+    final cs = Theme.of(context).colorScheme;
+    return _AttachmentSheetShell(
+      icon: Icons.route_outlined,
+      title: 'Deep-Link Builder',
+      subtitle: 'Shape a route, preview it live, and send it inline.',
+      onBack: () => Navigator.of(context).pop(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Link type',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurfaceVariant,
+                ),
           ),
-        ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<_DeepLinkType>(
+            key: ValueKey(_type),
+            initialValue: _type,
+            decoration: _attachmentInputDecoration(
+              context,
+              hintText: 'Choose a link target',
+              prefixIcon: const Icon(Icons.route_rounded),
+            ),
+            isExpanded: true,
+            items: const [
+              DropdownMenuItem(value: _DeepLinkType.feed, child: Text('Video feed')),
+              DropdownMenuItem(value: _DeepLinkType.profile, child: Text('Profile')),
+              DropdownMenuItem(value: _DeepLinkType.chat, child: Text('Chat with user')),
+              DropdownMenuItem(value: _DeepLinkType.themes, child: Text('Theme')),
+              DropdownMenuItem(value: _DeepLinkType.search, child: Text('Search')),
+              DropdownMenuItem(value: _DeepLinkType.quests, child: Text('Quests')),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() => _type = value);
+            },
+          ),
+          const SizedBox(height: 14),
+          _buildTypeOptions(),
+          const SizedBox(height: 16),
+          Text(
+            'Route preview',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainer,
+              borderRadius: BorderRadius.circular(context.uiRadiusMd),
+            ),
+            child: SelectableText(
+              _buildCurrentRoute(),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: cs.onSurface,
+                  ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: _canSubmit() ? () => Navigator.of(context).pop(_buildCurrentRoute()) : null,
+            icon: const Icon(Icons.send_rounded),
+            label: const Text('Send Link to Action'),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildTypeOptions() {
+    final cs = Theme.of(context).colorScheme;
     switch (_type) {
       case _DeepLinkType.feed:
         return _SelectionButton(
@@ -569,18 +840,23 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
             DropdownButtonFormField<DeepLinkProfileTab>(
               key: ValueKey(_profileTab),
               initialValue: _profileTab,
+              decoration: _attachmentInputDecoration(
+                context,
+                hintText: 'Choose a profile tab',
+                prefixIcon: const Icon(Icons.view_agenda_outlined),
+              ),
               items: const [
                 DropdownMenuItem(
                   value: DeepLinkProfileTab.videos,
-                  child: Text('tab: videos'),
+                  child: Text('Videos'),
                 ),
                 DropdownMenuItem(
                   value: DeepLinkProfileTab.followers,
-                  child: Text('tab: follower'),
+                  child: Text('Followers'),
                 ),
                 DropdownMenuItem(
                   value: DeepLinkProfileTab.following,
-                  child: Text('tab: following'),
+                  child: Text('Following'),
                 ),
               ],
               onChanged: (value) {
@@ -613,15 +889,19 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
             DropdownButtonFormField<DeepLinkThemeTab>(
               key: ValueKey(_themeTab),
               initialValue: _themeTab,
-              onTap: canChangeThemeTab ? null : () {},
+              decoration: _attachmentInputDecoration(
+                context,
+                hintText: canChangeThemeTab ? 'Choose a theme tab' : 'Theme selected',
+                prefixIcon: const Icon(Icons.category_outlined),
+              ),
               items: const [
                 DropdownMenuItem(
                   value: DeepLinkThemeTab.community,
-                  child: Text('Tab: community'),
+                  child: Text('Community'),
                 ),
                 DropdownMenuItem(
                   value: DeepLinkThemeTab.own,
-                  child: Text('Tab: Own'),
+                  child: Text('Own'),
                 ),
               ],
               onChanged: canChangeThemeTab
@@ -632,10 +912,13 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
                   : null,
             ),
             if (!canChangeThemeTab)
-              const Padding(
-                padding: EdgeInsets.only(top: 6),
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   'Tab selection is disabled while a specific theme is selected.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                 ),
               ),
             if (!canChangeThemeTab)
@@ -662,8 +945,10 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
                   _searchMode = DeepLinkSearchMode.text;
                 }
               }),
-              decoration: const InputDecoration(
-                hintText: 'search text (optional)',
+              decoration: _attachmentInputDecoration(
+                context,
+                hintText: 'Search text (optional)',
+                prefixIcon: const Icon(Icons.search_rounded),
               ),
             ),
             if (hasQuery) ...[
@@ -671,22 +956,27 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
               DropdownButtonFormField<DeepLinkSearchScope>(
                 key: ValueKey(_searchScope),
                 initialValue: _searchScope,
+                decoration: _attachmentInputDecoration(
+                  context,
+                  hintText: 'Choose scope',
+                  prefixIcon: const Icon(Icons.filter_alt_outlined),
+                ),
                 items: const [
                   DropdownMenuItem(
                     value: DeepLinkSearchScope.all,
-                    child: Text('Scope: all'),
+                    child: Text('All'),
                   ),
                   DropdownMenuItem(
                     value: DeepLinkSearchScope.videos,
-                    child: Text('Scope: videos'),
+                    child: Text('Videos'),
                   ),
                   DropdownMenuItem(
                     value: DeepLinkSearchScope.profiles,
-                    child: Text('Scope: profile'),
+                    child: Text('Profiles'),
                   ),
                   DropdownMenuItem(
                     value: DeepLinkSearchScope.dictionary,
-                    child: Text('Scope: dictionary'),
+                    child: Text('Dictionary'),
                   ),
                 ],
                 onChanged: (value) {
@@ -705,14 +995,19 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
               DropdownButtonFormField<DeepLinkSearchMode>(
                 key: ValueKey(_searchMode),
                 initialValue: _searchMode,
+                decoration: _attachmentInputDecoration(
+                  context,
+                  hintText: 'Choose mode',
+                  prefixIcon: const Icon(Icons.tag_rounded),
+                ),
                 items: const [
                   DropdownMenuItem(
                     value: DeepLinkSearchMode.text,
-                    child: Text('Mode: text'),
+                    child: Text('Text'),
                   ),
                   DropdownMenuItem(
                     value: DeepLinkSearchMode.tags,
-                    child: Text('Mode: tags'),
+                    child: Text('Tags'),
                   ),
                 ],
                 onChanged: (value) {
@@ -727,9 +1022,10 @@ class _DeepLinkBuilderSheetState extends State<_DeepLinkBuilderSheet> {
         return TextField(
           controller: _questSubjectController,
           textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
+          decoration: _attachmentInputDecoration(
+            context,
             hintText: 'Subject (optional, e.g. Math)',
-            prefixIcon: Icon(Icons.subject_outlined),
+            prefixIcon: const Icon(Icons.subject_outlined),
           ),
         );
     }
@@ -751,12 +1047,55 @@ class _SelectionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon),
-        label: Align(
-          alignment: Alignment.centerLeft,
-          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+      child: Material(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(context.uiRadiusMd),
+          side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(context.uiRadiusMd),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(context.uiRadiusMd),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  child: Icon(icon, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Icon(
+                  Icons.arrow_forward_rounded,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -821,6 +1160,7 @@ class _VideoPickerSheetState extends State<_VideoPickerSheet> {
   @override
   Widget build(BuildContext context) {
     return _PickerScaffold(
+      icon: Icons.play_circle_outline,
       title: 'select video',
       controller: _searchController,
       hint: 'search videos',
@@ -828,31 +1168,51 @@ class _VideoPickerSheetState extends State<_VideoPickerSheet> {
       itemCount: _items.length,
       itemBuilder: (context, index) {
         final video = _items[index];
-        return ListTile(
-          leading: video.thumbnailUrl?.isNotEmpty == true
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: CachedNetworkImage(
-                    imageUrl: video.thumbnailUrl!,
-                    width: 56,
-                    height: 56,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, _, _) =>
-                        const SizedBox(width: 56, height: 56),
-                  ),
-                )
-              : const Icon(Icons.play_circle_outline),
-          title: Text(
-            video.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+          child: Material(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(context.uiRadiusMd),
+              side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+            ),
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(12),
+              leading: video.thumbnailUrl?.isNotEmpty == true
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: CachedNetworkImage(
+                        imageUrl: video.thumbnailUrl!,
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, _, _) => const SizedBox(width: 56, height: 56),
+                      ),
+                    )
+                  : Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                      ),
+                      child: Icon(Icons.play_circle_outline, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                    ),
+              title: Text(
+                video.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                video.authorName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: const Icon(Icons.arrow_forward_rounded),
+              onTap: () => Navigator.of(context).pop(video),
+            ),
           ),
-          subtitle: Text(
-            video.authorName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          onTap: () => Navigator.of(context).pop(video),
         );
       },
     );
@@ -922,6 +1282,7 @@ class _ProfilePickerSheetState extends State<_ProfilePickerSheet> {
   @override
   Widget build(BuildContext context) {
     return _PickerScaffold(
+      icon: Icons.person_outline,
       title: 'select profile',
       controller: _searchController,
       hint: 'search profiles',
@@ -929,26 +1290,39 @@ class _ProfilePickerSheetState extends State<_ProfilePickerSheet> {
       itemCount: _items.length,
       itemBuilder: (context, index) {
         final profile = _items[index];
-        return ListTile(
-          leading: CircleAvatar(
-            foregroundImage: profile.profileImageUrl.isNotEmpty
-                ? NetworkImage(profile.profileImageUrl)
-                : null,
-            child: profile.displayName.isNotEmpty
-                ? Text(profile.displayName[0].toUpperCase())
-                : const Text('?'),
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+          child: Material(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(context.uiRadiusMd),
+              side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+            ),
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(12),
+              leading: CircleAvatar(
+                foregroundImage: profile.profileImageUrl.isNotEmpty
+                    ? NetworkImage(profile.profileImageUrl)
+                    : null,
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                child: profile.displayName.isNotEmpty
+                    ? Text(profile.displayName[0].toUpperCase())
+                    : const Text('?'),
+              ),
+              title: Text(
+                profile.displayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                '@${profile.username}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: const Icon(Icons.arrow_forward_rounded),
+              onTap: () => Navigator.of(context).pop(profile),
+            ),
           ),
-          title: Text(
-            profile.displayName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(
-            '@${profile.username}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          onTap: () => Navigator.of(context).pop(profile),
         );
       },
     );
@@ -1047,47 +1421,60 @@ class _ThemePickerSheetState extends State<_ThemePickerSheet> {
   Widget build(BuildContext context) {
     final uid = _supabase.auth.currentUser?.id;
     return _PickerScaffold(
+      icon: Icons.palette_outlined,
       title: 'select theme',
       controller: _searchController,
       hint: 'search themes',
-      prefix: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-        child: SegmentedButton<DeepLinkThemeTab>(
-          segments: const [
-            ButtonSegment(
-              value: DeepLinkThemeTab.community,
-              label: Text('Community'),
-              icon: Icon(Icons.public_outlined),
-            ),
-            ButtonSegment(
-              value: DeepLinkThemeTab.own,
-              label: Text('Own'),
-              icon: Icon(Icons.person_outline),
-            ),
-          ],
-          selected: {_tab},
-          onSelectionChanged: (selected) {
-            final next = selected.first;
-            if (next == _tab) return;
-            setState(() => _tab = next);
-            _load();
-          },
-        ),
+      prefix: SegmentedButton<DeepLinkThemeTab>(
+        segments: const [
+          ButtonSegment(
+            value: DeepLinkThemeTab.community,
+            label: Text('Community'),
+            icon: Icon(Icons.public_outlined),
+          ),
+          ButtonSegment(
+            value: DeepLinkThemeTab.own,
+            label: Text('Own'),
+            icon: Icon(Icons.person_outline),
+          ),
+        ],
+        selected: {_tab},
+        onSelectionChanged: (selected) {
+          final next = selected.first;
+          if (next == _tab) return;
+          setState(() => _tab = next);
+          _load();
+        },
       ),
       loading: _loading,
       itemCount: _items.length,
       itemBuilder: (context, index) {
         final theme = _items[index];
         final isOwn = uid != null && theme.createdBy == uid;
-        return ListTile(
-          leading: CircleAvatar(backgroundColor: theme.colors.primary),
-          title: Text(theme.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: Text(
-            isOwn
-                ? 'Own Theme'
-                : (theme.isPublic ? 'Community Theme' : 'Private Theme'),
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+          child: Material(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(context.uiRadiusMd),
+              side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+            ),
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(12),
+              leading: CircleAvatar(
+                backgroundColor: theme.colors.primary,
+                child: Icon(Icons.palette_outlined, color: theme.colors.onPrimary),
+              ),
+              title: Text(theme.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: Text(
+                isOwn
+                    ? 'Own Theme'
+                    : (theme.isPublic ? 'Community Theme' : 'Private Theme'),
+              ),
+              trailing: const Icon(Icons.arrow_forward_rounded),
+              onTap: () => Navigator.of(context).pop(theme),
+            ),
           ),
-          onTap: () => Navigator.of(context).pop(theme),
         );
       },
     );
@@ -1096,6 +1483,7 @@ class _ThemePickerSheetState extends State<_ThemePickerSheet> {
 
 class _PickerScaffold extends StatelessWidget {
   const _PickerScaffold({
+    required this.icon,
     required this.title,
     required this.controller,
     required this.hint,
@@ -1105,6 +1493,7 @@ class _PickerScaffold extends StatelessWidget {
     required this.itemBuilder,
   });
 
+  final IconData icon;
   final String title;
   final TextEditingController controller;
   final String hint;
@@ -1115,53 +1504,48 @@ class _PickerScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
+    return _AttachmentSheetShell(
+      icon: icon,
+      title: title,
+      subtitle: 'Search, filter, and select without leaving the chat flow.',
+      onBack: () => Navigator.of(context).pop(),
       child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.8,
+        height: MediaQuery.of(context).size.height * 0.72,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+            TextField(
+              controller: controller,
+              decoration: _attachmentInputDecoration(
+                context,
+                hintText: hint,
+                prefixIcon: const Icon(Icons.search_rounded),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-              child: TextField(
-                controller: controller,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  hintText: hint,
-                ),
-              ),
-            ),
-            ?prefix,
+            if (prefix != null) ...[
+              const SizedBox(height: 12),
+              prefix!,
+            ],
+            const SizedBox(height: 12),
             Expanded(
               child: loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? Center(
+                      child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
+                    )
                   : itemCount == 0
-                  ? const Center(child: Text('No results'))
-                  : ListView.builder(
-                      itemCount: itemCount,
-                      itemBuilder: itemBuilder,
-                    ),
+                      ? Center(
+                          child: Text(
+                            'No results',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.only(top: 2),
+                          itemCount: itemCount,
+                          itemBuilder: itemBuilder,
+                        ),
             ),
           ],
         ),

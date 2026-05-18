@@ -172,7 +172,7 @@ class _ShareButtonState extends State<ShareButton> with SingleTickerProviderStat
     if (_copying || _sendingContactId != null) return;
     setState(() => _copying = true);
     try {
-      final link = Uri.base.origin + widget.shareUrl;
+      final link = "https://riddleneon.github.io/lumox/#${widget.shareUrl}";
 
       if (widget.onCopyLink != null) {
         await widget.onCopyLink!(link);
