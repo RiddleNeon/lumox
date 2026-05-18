@@ -1,4 +1,5 @@
-//test app for the quest screen
+import 'dart:async';
+import 'dart:math' show max, min;
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +12,7 @@ import 'package:lumox/logic/quests/quest_system.dart';
 import 'package:lumox/logic/repositories/quest_repository.dart';
 import 'package:lumox/tools/quest_generator.dart';
 import 'package:lumox/ui/quests/version_management/change_screen.dart';
+import 'package:vector_math/vector_math_64.dart' show Matrix4, Vector3;
 
 import 'core/pan.dart';
 
@@ -25,55 +27,190 @@ class QuestScreen extends StatefulWidget {
   State<QuestScreen> createState() => _QuestScreenState();
 }
 
-class _QuestScreenState extends State<QuestScreen> {
-  final Map<String, GlobalKey<PanWidgetState>> _panKeys = {};
+class _QuestScreenState extends State<QuestScreen> with SingleTickerProviderStateMixin {
+  final GlobalKey<PanWidgetState> _panKey = GlobalKey<PanWidgetState>();
   bool debugMode = false;
   bool hasPendingChanges = false;
   bool isSubjectMenuOpen = false;
-  bool _questViewportReady = false;
   int _questSystemLoadToken = 0;
+  bool _isLoadingSubject = false;
+  QuestSystem? _currentQuestSystem;
+  QuestSystem? _incomingQuestSystem;
+  QuestSystem? _transitionMergedSystem; // Temporary combined system during transition
+  Matrix4 _currentTransform = Matrix4.identity();
+  Matrix4 _transitionStartTransform = Matrix4.identity();
+  Matrix4 _transitionEndTransform = Matrix4.identity();
+  Offset _transitionWorldOffset = Offset.zero;
+  Size? _transitionOverlaySize;
+  late final TransformationController _panController = TransformationController(); // Shared controller for camera
+  late final AnimationController _transitionAnimationController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 700),
+  )..addListener(_onTransitionAnimationUpdate);
   final Set<String> expandedSubjectGroups = {};
   final Set<String> locallyCreatedSubjects = {};
   late Future<List<String>> subjectFuture;
   
   late String subject = widget.initialSubject;
-  
-  GlobalKey<PanWidgetState> get _panKey => _panKeys.putIfAbsent(subject, () => GlobalKey<PanWidgetState>());
+
+  List<Quest> _focusQuestsFor(QuestSystem questSystem) {
+    return widget.focusQuestIds.map((id) => questSystem.maybeGetQuestById(id)).whereType<Quest>().toList();
+  }
+
+  List<Quest> _offsetQuests(List<Quest> quests, Offset offset) => quests
+      .map((quest) => quest.copyWith(posX: quest.posX + offset.dx, posY: quest.posY + offset.dy))
+      .toList();
+
+  QuestSystem _buildMergedSystem(QuestSystem current, QuestSystem incoming, Offset currentOffset, Offset incomingOffset) {
+    final merged = QuestSystem();
+
+    for (final quest in _offsetQuests(current.quests, currentOffset)) {
+      merged.upsertQuest(quest);
+    }
+
+    for (final quest in _offsetQuests(incoming.quests, incomingOffset)) {
+      merged.upsertQuest(quest);
+    }
+
+    final seenConnections = <String>{};
+    for (final conn in current.getConnections()) {
+      final key = '${conn.fromQuestId},${conn.toQuestId}';
+      if (seenConnections.add(key)) {
+        merged.addConnection(conn.fromQuestId, conn.toQuestId);
+      }
+    }
+    for (final conn in incoming.getConnections()) {
+      final key = '${conn.fromQuestId},${conn.toQuestId}';
+      if (seenConnections.add(key)) {
+        merged.addConnection(conn.fromQuestId, conn.toQuestId);
+      }
+    }
+
+    return merged;
+  }
+
+  void _onTransitionAnimationUpdate() {
+    if (!mounted || _currentQuestSystem == null || _incomingQuestSystem == null) return;
+
+    final progress = Curves.easeInOutCubic.transform(_transitionAnimationController.value);
+    final currentSystem = _currentQuestSystem!;
+    final incomingSystem = _incomingQuestSystem!;
+    final currentOffset = Offset(_transitionWorldOffset.dx * progress, _transitionWorldOffset.dy * progress);
+    final incomingOffset = Offset(
+      _transitionWorldOffset.dx * (progress - 1),
+      _transitionWorldOffset.dy * (progress - 1),
+    );
+    _transitionMergedSystem = _buildMergedSystem(currentSystem, incomingSystem, currentOffset, incomingOffset);
+
+    _panController.value = Matrix4Tween(begin: _transitionStartTransform, end: _transitionEndTransform).transform(progress);
+    setState(() {});
+  }
+
+  Matrix4 _buildCameraMatrix(double scale, double tx, double ty) {
+    return Matrix4.identity()
+      ..scaleByVector3(Vector3.all(scale))
+      ..translateByVector3(Vector3(tx / scale, ty / scale, 0));
+  }
+
+  Matrix4 _buildTransformForQuests(List<Quest> quests, Size viewportSize, {required bool autoZoom, double? fixedScale}) {
+    const boundaryPadding = 200.0;
+
+    if (quests.isEmpty) {
+      final scaleX = viewportSize.width / (boundaryPadding * 2 + 1);
+      final scaleY = viewportSize.height / (boundaryPadding * 2 + 1);
+      final targetScale = fixedScale ?? (autoZoom ? (scaleX < scaleY ? scaleX : scaleY) * 0.85 : 1.0);
+      return _buildCameraMatrix(targetScale, viewportSize.width / 2, viewportSize.height / 2);
+    }
+
+    double minX = double.infinity;
+    double minY = double.infinity;
+    double maxX = double.negativeInfinity;
+    double maxY = double.negativeInfinity;
+
+    for (final quest in quests) {
+      minX = min(minX, quest.posX);
+      minY = min(minY, quest.posY);
+      maxX = max(maxX, quest.posX + quest.sizeX);
+      maxY = max(maxY, quest.posY + quest.sizeY);
+    }
+
+    final center = Offset((minX + maxX) / 2, (minY + maxY) / 2);
+    final boundsWidth = (maxX - minX).abs() + 1;
+    final boundsHeight = (maxY - minY).abs() + 1;
+    final scaleX = viewportSize.width / boundsWidth;
+    final scaleY = viewportSize.height / boundsHeight;
+    final targetScale = fixedScale ?? (autoZoom ? (scaleX < scaleY ? scaleX : scaleY) * 0.85 : 1.0);
+
+    final targetTx = viewportSize.width / 2 - center.dx * targetScale;
+    final targetTy = viewportSize.height / 2 - center.dy * targetScale;
+    return _buildCameraMatrix(targetScale, targetTx, targetTy);
+  }
+
+  int _subjectSeed(String subjectName) {
+    var hash = 17;
+    for (final rune in subjectName.runes) {
+      hash = 37 * hash + rune;
+    }
+    return hash & 0x7fffffff;
+  }
+
+  Offset _seededAxisDirection(String subjectName) {
+    final index = _subjectSeed(subjectName) % 4;
+    return switch (index) {
+      0 => const Offset(-1, 0),
+      1 => const Offset(1, 0),
+      2 => const Offset(0, -1),
+      _ => const Offset(0, 1),
+    };
+  }
+
+  double _directionSign(double value) {
+    if (value.abs() < 0.0001) return 0;
+    return value > 0 ? 1 : -1;
+  }
+
+  Offset _transitionDirectionFromCameraDelta(Matrix4 start, Matrix4 end, String fallbackSubject) {
+    final delta = Offset(end.entry(0, 3) - start.entry(0, 3), end.entry(1, 3) - start.entry(1, 3));
+    final dx = _directionSign(delta.dx);
+    final dy = _directionSign(delta.dy);
+    if (dx == 0 && dy == 0) return _seededAxisDirection(fallbackSubject);
+    return Offset(-dx, -dy);
+  }
+
+  Size _overlaySizeForSystem(QuestSystem system) {
+    const padding = 500.0;
+    double maxX = 0;
+    double maxY = 0;
+    for (final quest in system.quests) {
+      if (quest.posX + quest.sizeX > maxX) maxX = quest.posX + quest.sizeX;
+      if (quest.posY + quest.sizeY > maxY) maxY = quest.posY + quest.sizeY;
+    }
+    return Size(maxX + padding, maxY + padding);
+  }
+
 
   @override
   initState() {
     super.initState();
     print("Initializing TestQuestScreen with subject: $subject");
-    questSystemFuture = loadQuestSystemFor(subject, _questSystemLoadToken);
     subjectFuture = questRepo.fetchQuestSubjects();
+    _loadInitialSubject();
   }
 
-  Future<QuestSystem> loadQuestSystemFor(String subjectToLoad, int loadToken) async {
-    QuestSystem questSystem = QuestSystem();
+  Future<({QuestSystem system, Matrix4 targetTransform})?> _loadSystemForSubject(String subjectToLoad, int loadToken) async {
+    final questSystem = QuestSystem();
     print("-- Loading quests for subject: $subjectToLoad");
     await questSystem.loadFromServer(subjectToLoad);
 
-    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
-      if (!mounted || loadToken != _questSystemLoadToken) return;
-      setState(() {
-        final focusQuests = widget.focusQuestIds.map((id) => questSystem.maybeGetQuestById(id)).whereType<Quest>().toList();
+    if (!mounted || loadToken != _questSystemLoadToken) {
+      return null;
+    }
 
-        if (focusQuests.isEmpty) {
-          _panKey.currentState?.centerOnAllQuests(context.size?.width ?? 1000, context.size?.height ?? 1000);
-          _questViewportReady = true;
-          return;
-        }
-
-        final panState = _panKey.currentState;
-        if (panState == null) {
-          _questViewportReady = true;
-          return;
-        }
-        panState.focusOnQuests(focusQuests, context.size?.width ?? 1000, context.size?.height ?? 1000, zoomOutIfNeeded: widget.zoomOutIfNeeded);
-
-        _questViewportReady = true;
-      });
-    });
+    final viewportSize = context.size ?? const Size(1000, 1000);
+    final focusQuests = _focusQuestsFor(questSystem);
+    final targetTransform = focusQuests.isEmpty
+        ? _buildTransformForQuests(questSystem.quests, viewportSize, autoZoom: true)
+        : _buildTransformForQuests(focusQuests, viewportSize, autoZoom: widget.zoomOutIfNeeded);
 
     questSystem.changeManager.addListener(() {
       if (!mounted || loadToken != _questSystemLoadToken) return;
@@ -83,14 +220,112 @@ class _QuestScreenState extends State<QuestScreen> {
         });
       }
     });
-    return questSystem;
-  }
-  
-  Future<QuestSystem> reloadQuestSystem() async {
-    return loadQuestSystemFor(subject, _questSystemLoadToken);
+
+    return (system: questSystem, targetTransform: targetTransform);
   }
 
-  late Future<QuestSystem> questSystemFuture;
+  Future<void> _loadInitialSubject() async {
+    final loadToken = ++_questSystemLoadToken;
+    final loaded = await _loadSystemForSubject(subject, loadToken);
+    if (!mounted || loaded == null) return;
+
+    setState(() {
+      _currentQuestSystem = loaded.system;
+      _currentTransform = loaded.targetTransform;
+      hasPendingChanges = loaded.system.changeManager.hasPendingChanges;
+    });
+    _panController.value = Matrix4.copy(_currentTransform);
+  }
+
+  Future<void> _startSubjectTransition(String selectedSubject) async {
+    if (selectedSubject == subject) {
+      setState(() => isSubjectMenuOpen = false);
+      return;
+    }
+
+    final loadToken = ++_questSystemLoadToken;
+
+    setState(() {
+      isSubjectMenuOpen = false;
+      subject = selectedSubject;
+      _isLoadingSubject = true;
+      _transitionMergedSystem = null;
+      _incomingQuestSystem = null;
+    });
+
+    final loaded = await _loadSystemForSubject(selectedSubject, loadToken);
+    if (!mounted || loaded == null) return;
+
+    final currentSystem = _currentQuestSystem;
+    final viewportSize = context.size ?? const Size(1000, 1000);
+
+    if (currentSystem == null) {
+      setState(() {
+        _currentQuestSystem = loaded.system;
+        _currentTransform = loaded.targetTransform;
+        _isLoadingSubject = false;
+        hasPendingChanges = loaded.system.changeManager.hasPendingChanges;
+      });
+      _panController.value = Matrix4.copy(_currentTransform);
+      return;
+    }
+
+    final currentScale = (_currentTransform.entry(0, 0)).abs().clamp(0.000001, double.infinity);
+    final travelDistance = (max(viewportSize.width, viewportSize.height) / currentScale) * 2.4 + 900.0;
+    final cameraDirection = _transitionDirectionFromCameraDelta(_currentTransform, loaded.targetTransform, selectedSubject);
+    final worldOffset = Offset(cameraDirection.dx * travelDistance, cameraDirection.dy * travelDistance);
+
+    final mergedSystem = _buildMergedSystem(currentSystem, loaded.system, Offset.zero, worldOffset * -1);
+    final startTransform = Matrix4.copy(_currentTransform);
+    final endTransform = loaded.targetTransform;
+
+    setState(() {
+      _transitionMergedSystem = mergedSystem;
+      _incomingQuestSystem = loaded.system;
+      _transitionStartTransform = startTransform;
+      _transitionEndTransform = endTransform;
+      _transitionWorldOffset = worldOffset;
+      _transitionOverlaySize = _overlaySizeForSystem(mergedSystem);
+      _isLoadingSubject = false;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || loadToken != _questSystemLoadToken || _incomingQuestSystem == null) return;
+
+      _transitionAnimationController
+        ..stop()
+        ..reset()
+        ..duration = const Duration(milliseconds: 720);
+
+      await _transitionAnimationController.forward();
+      if (!mounted || loadToken != _questSystemLoadToken) return;
+
+      setState(() {
+        _currentQuestSystem = loaded.system;
+        _currentTransform = endTransform;
+        _incomingQuestSystem = null;
+        hasPendingChanges = loaded.system.changeManager.hasPendingChanges;
+      });
+
+      _panController.value = Matrix4.copy(endTransform);
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && loadToken == _questSystemLoadToken) {
+          setState(() {
+            _transitionMergedSystem = null;
+            _transitionOverlaySize = null;
+          });
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _transitionAnimationController.dispose();
+    _panController.dispose();
+    super.dispose();
+  }
 
   Future<void> _showCreateSubjectDialog() async {
     final controller = TextEditingController();
@@ -133,38 +368,46 @@ class _QuestScreenState extends State<QuestScreen> {
         body: const Center(child: Text('Please select a subject to view quests.')),
       );
     }
-    return FutureBuilder(
-      key: ValueKey(subject),
-      future: questSystemFuture,
-      builder: (context, asyncSnapshot) {
-        final loaded = asyncSnapshot.connectionState == ConnectionState.done && asyncSnapshot.hasData;
-        final questSystem = asyncSnapshot.data;
-        final colorScheme = Theme.of(context).colorScheme;
-        final questView = loaded && questSystem != null
-            ? IgnorePointer(
-                ignoring: !_questViewportReady,
-                child: Opacity(
-                  opacity: _questViewportReady ? 1 : 0,
-                  child: SizedBox.expand(
-                    child: PanWidget(key: _panKey, questSystem: questSystem),
-                  ),
-                ),
-              )
-            : const Center(child: CircularProgressIndicator());
+    final colorScheme = Theme.of(context).colorScheme;
+    final loaded = _currentQuestSystem != null;
+    final questSystem = _currentQuestSystem;
+    final isTransitioning = _incomingQuestSystem != null;
 
-        return Scaffold(
-          appBar: AppBar(
-            leading: IconButton(icon: const Icon(Icons.menu), onPressed: () => setState(() => isSubjectMenuOpen = !isSubjectMenuOpen), tooltip: 'Subjects'),
-            title: InkWell(
-              onTap: () {
-                debugMode = !debugMode;
-                _panKey.currentState?.debugMode = debugMode;
-                setState(() {});
-              },
-              child: const Text('Quest Screen'),
+    final questView = !loaded
+        ? const Center(child: CircularProgressIndicator())
+        : IgnorePointer(
+            ignoring: _isLoadingSubject || isTransitioning || _transitionMergedSystem != null,
+            child: ClipRect(
+              child: SizedBox.expand(
+                child: PanWidget(
+                  key: _panKey,
+                  controller: _panController,
+                  questSystem: _transitionMergedSystem ?? _currentQuestSystem!,
+                  initialTransform: _currentTransform,
+                  showBackground: true,
+                  questOverlaySizeOverride: _transitionOverlaySize,
+                  onTransformChanged: (transform) {
+                    if (isTransitioning) return;
+                    _currentTransform = Matrix4.copy(transform);
+                  },
+                ),
+              ),
             ),
-            centerTitle: true,
-          ),
+          );
+
+    return Scaffold(
+           appBar: AppBar(
+             leading: IconButton(icon: const Icon(Icons.menu), onPressed: () => setState(() => isSubjectMenuOpen = !isSubjectMenuOpen), tooltip: 'Subjects'),
+             title: InkWell(
+               onTap: () {
+                 debugMode = !debugMode;
+                 _panKey.currentState?.debugMode = debugMode;
+                 setState(() {});
+               },
+               child: const Text('Quest Screen'),
+             ),
+             centerTitle: true,
+           ),
           body: Stack(
             children: [
               questView,
@@ -201,18 +444,7 @@ class _QuestScreenState extends State<QuestScreen> {
                   });
                 },
                 onSelectSubject: (selectedSubject) async {
-                  if (selectedSubject == subject) {
-                    setState(() => isSubjectMenuOpen = false);
-                    return;
-                  }
-                  final loadToken = ++_questSystemLoadToken;
-                  setState(() {
-                    subject = selectedSubject;
-                    isSubjectMenuOpen = false;
-                    hasPendingChanges = false;
-                    _questViewportReady = false;
-                    questSystemFuture = loadQuestSystemFor(selectedSubject, loadToken);
-                  });
+                  await _startSubjectTransition(selectedSubject);
                 },
               ),
             ],
@@ -317,19 +549,17 @@ class _QuestScreenState extends State<QuestScreen> {
                   },
                 ),
               ),
-              const SizedBox(width: 16),
-              FloatingActionButton(
-                heroTag: null,
-                child: const Icon(Icons.filter_center_focus),
-                onPressed: () {
-                  _panKey.currentState?.centerOnAllQuests(context.size?.width ?? 100, context.size?.height ?? 100, autoZoom: true);
-                },
-              ),
+               const SizedBox(width: 16),
+               FloatingActionButton(
+                 heroTag: null,
+                 child: const Icon(Icons.filter_center_focus),
+                 onPressed: () {
+                   _panKey.currentState?.centerOnAllQuests(_panKey.currentContext?.size?.width ?? 100, _panKey.currentContext?.size?.height ?? 100, autoZoom: true);
+                 },
+               ),
             ],
           ),
         );
-      },
-    );
   }
 }
 

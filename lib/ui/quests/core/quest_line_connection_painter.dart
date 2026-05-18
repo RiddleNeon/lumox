@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:lumox/logic/quests/quest_system.dart';
-import 'package:lumox/ui/quests/core/quest_bubbles_overlay.dart';
 
 import 'bezier_helper.dart';
 
@@ -56,6 +55,7 @@ class QuestLineConnectionPainter extends CustomPainter {
     this.borderWidth = 2.2,
     this.borderColor = const Color(0xFF0A0A0A),
     this.arrowSize = 9.0,
+    this.derivedQuestColors,
   }) : super(repaint: animation);
 
   int? currentDraggedQuestId;
@@ -66,8 +66,10 @@ class QuestLineConnectionPainter extends CustomPainter {
 
   Rect? viewportRect;
   double scale;
+  
+  Map<int, Color>? derivedQuestColors;
 
-  final QuestSystem questSystem;
+  QuestSystem questSystem;
   final Animation<double> animation;
 
   final double arrowHideScale;
@@ -596,7 +598,8 @@ class QuestLineConnectionPainter extends CustomPainter {
 
   Color glowColorOfQuest(int id, QuestSystem system) {
     if (glowColors.containsKey(id)) return glowColors[id]!;
-    final hsl = HSLColor.fromColor(derivedQuestColors[id] ?? system.getQuestById(id).color);
+    
+    final hsl = HSLColor.fromColor(derivedQuestColors?[id] ?? system.getQuestById(id).color);
     final color = hsl.withLightness(0.65).withSaturation(0.75).toColor();
     return glowColors[id] = color;
   }

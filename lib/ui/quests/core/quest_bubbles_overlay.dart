@@ -9,14 +9,14 @@ import 'quest_color_propagator.dart';
 class QuestBubblesOverlay extends StatefulWidget {
   final bool debugMode;
   final QuestSystem questSystem;
+  final Size? worldSizeOverride;
 
-  const QuestBubblesOverlay(
-      {super.key, required this.debugMode, required this.questSystem});
+  const QuestBubblesOverlay({super.key, required this.debugMode, required this.questSystem, this.worldSizeOverride});
 
   @override
   State<QuestBubblesOverlay> createState() => QuestBubblesOverlayState();
 }
-Map<int, Color> derivedQuestColors = {};
+
 class QuestBubblesOverlayState extends State<QuestBubblesOverlay>
     with TickerProviderStateMixin {
   late final QuestLineConnectionPainter _connectionPainter;
@@ -35,6 +35,7 @@ class QuestBubblesOverlayState extends State<QuestBubblesOverlay>
       })>((sourceId: null, targetId: null, previewPos: null));
 
   late final AnimationController _lineAnimCtrl;
+  final Map<int, Color> _derivedQuestColors = {};
 
 
   @override
@@ -54,6 +55,7 @@ class QuestBubblesOverlayState extends State<QuestBubblesOverlay>
       lineWidth: 10,
       arrowSize: 8.0,
     );
+    _connectionPainter.derivedQuestColors = _derivedQuestColors;
 
     _worldBounds = _computeWorldBounds();
 
@@ -62,6 +64,26 @@ class QuestBubblesOverlayState extends State<QuestBubblesOverlay>
     _connectionPainter.rebuildCache();
     _recomputeColors();
   }
+
+  @override
+  void didUpdateWidget(covariant QuestBubblesOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.questSystem != widget.questSystem) {
+      oldWidget.questSystem.removeListener(_onQuestSystemChanged);
+      questSystem.addListener(_onQuestSystemChanged);
+
+      _connectionPainter.questSystem = questSystem;
+      _worldBounds = _computeWorldBounds();
+      _connectionPainter.rebuildCache();
+      _recomputeColors();
+      setState(() {});
+    }
+
+    if (oldWidget.debugMode != widget.debugMode) {
+      setState(() {});
+    }
+  }
   
   void _recomputeColors() {
     final adjacency = QuestColorPropagator.buildAdjacency(
@@ -69,10 +91,13 @@ class QuestBubblesOverlayState extends State<QuestBubblesOverlay>
       prerequisiteResolver: questSystem.prerequisitesOf,
     );
 
-    derivedQuestColors = QuestColorPropagator.compute(
+    final computed = QuestColorPropagator.compute(
       quests: questSystem.quests,
       adjacency: adjacency,
     );
+    _derivedQuestColors
+      ..clear()
+      ..addAll(computed);
     _connectionPainter.recomputeGlowColors();
   }
   
@@ -126,14 +151,16 @@ class QuestBubblesOverlayState extends State<QuestBubblesOverlay>
   @override
   Widget build(BuildContext context) {
     const padding = 500.0;
+    final width = widget.worldSizeOverride?.width ?? (_worldBounds.width + padding);
+    final height = widget.worldSizeOverride?.height ?? (_worldBounds.height + padding);
 
     return SizedBox(
-      width: _worldBounds.width + padding,
-      height: _worldBounds.height + padding,
+      width: width,
+      height: height,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          CustomPaint(size: _worldBounds, painter: _connectionPainter),
+          CustomPaint(size: Size(width, height), painter: _connectionPainter),
           for (final quest in questSystem.quests) _positionedBubble(quest),
         ],
       ),
@@ -150,7 +177,7 @@ class QuestBubblesOverlayState extends State<QuestBubblesOverlay>
           valueListenable: _connectionNotifier,
           builder: (context, conn, _) {
             final effectiveColor =
-                derivedQuestColors[quest.id] ?? quest.color;
+                _derivedQuestColors[quest.id] ?? quest.color;
             
             return Positioned(
               left: isDragged ? drag.pos!.dx : quest.posX,

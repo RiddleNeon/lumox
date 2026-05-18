@@ -9,7 +9,6 @@ import 'package:flutter/services.dart';
 import 'package:lumox/ui/quests/core/quest_bubbles_overlay.dart';
 import 'package:lumox/ui/quests/core/quest_connection_edit_screen.dart';
 import 'package:lumox/ui/quests/core/quest_detail_screen.dart';
-import 'package:vector_math/vector_math_64.dart' hide Matrix4, Colors;
 import 'package:lumox/logic/quests/quest_change_manager.dart';
 import 'package:lumox/logic/quests/quest_connection.dart';
 import 'package:lumox/logic/quests/quest_system.dart';
@@ -21,17 +20,31 @@ import 'pan_background.dart';
 import 'quest_bubble.dart';
 
 class PanWidget extends StatefulWidget {
-  const PanWidget({super.key, this.controller, required this.questSystem});
+  const PanWidget({
+    super.key,
+    this.controller,
+    this.initialTransform,
+    this.showBackground = true,
+    this.questOverlaySizeOverride,
+    this.onTransformChanged,
+    required this.questSystem,
+  });
 
   final TransformationController? controller;
+  final Matrix4? initialTransform;
+  final bool showBackground;
+  final Size? questOverlaySizeOverride;
+  final ValueChanged<Matrix4>? onTransformChanged;
   final QuestSystem questSystem;
 
   @override
   State<PanWidget> createState() => PanWidgetState();
 }
 
-class PanWidgetState extends State<PanWidget> {
+class PanWidgetState extends State<PanWidget> with TickerProviderStateMixin {
   late final TransformationController _controller = widget.controller ?? TransformationController();
+  late final AnimationController _cameraAnimationController = AnimationController(vsync: this);
+  int _cameraAnimationToken = 0;
 
   bool debugMode = false;
 
@@ -57,6 +70,59 @@ class PanWidgetState extends State<PanWidget> {
   Timer? _hoverConnectionTimer;
 
   double get _currentScale => _controller.value.getMaxScaleOnAxis();
+  Matrix4 get currentTransform => Matrix4.copy(_controller.value);
+
+  Matrix4 _buildCameraMatrix(double scale, double tx, double ty) {
+    return Matrix4.identity()
+      ..scale(scale)
+      ..translate(tx / scale, ty / scale);
+  }
+
+  void _syncOverlayViewport() {
+    if (!mounted) return;
+
+    final renderBox = context.findRenderObject() as RenderBox?;
+    final size = renderBox?.size ?? context.size;
+    if (size == null) return;
+
+    final scale = _currentScale;
+    final tx = _controller.value.entry(0, 3);
+    final ty = _controller.value.entry(1, 3);
+    final viewportRect = Rect.fromLTWH(-tx / scale, -ty / scale, size.width / scale, size.height / scale);
+    _questBubbleOverlayKey.currentState?.onScaleChange(scale, viewportRect);
+    widget.onTransformChanged?.call(Matrix4.copy(_controller.value));
+  }
+
+  Future<void> animateToTransform(Matrix4 target, {Duration duration = const Duration(milliseconds: 520), Curve curve = Curves.easeOutCubic}) async {
+    if (!mounted) return;
+
+    final begin = Matrix4.copy(_controller.value);
+    if (begin == target) {
+      _controller.value = target;
+      return;
+    }
+
+    final token = ++_cameraAnimationToken;
+    _cameraAnimationController.stop();
+    _cameraAnimationController.duration = duration;
+
+    final animation = Matrix4Tween(begin: begin, end: target).animate(CurvedAnimation(parent: _cameraAnimationController, curve: curve));
+
+    void listener() {
+      if (!mounted || token != _cameraAnimationToken) return;
+      _controller.value = animation.value;
+    }
+
+    _cameraAnimationController.addListener(listener);
+    try {
+      await _cameraAnimationController.forward(from: 0);
+      if (mounted && token == _cameraAnimationToken) {
+        _controller.value = target;
+      }
+    } finally {
+      _cameraAnimationController.removeListener(listener);
+    }
+  }
 
   QuestSystem get questSystem => widget.questSystem;
 
@@ -123,8 +189,12 @@ class PanWidgetState extends State<PanWidget> {
   @override
   void initState() {
     super.initState();
+    _controller.value = widget.initialTransform ?? Matrix4.identity();
+    _controller.addListener(_syncOverlayViewport);
     questSystem.addListener(revalidateBoundaries);
     revalidateBoundaries();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncOverlayViewport());
 
     _hoverConnectionTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
       _refreshHoveredConnection();
@@ -134,9 +204,23 @@ class PanWidgetState extends State<PanWidget> {
   }
 
   @override
+  void didUpdateWidget(covariant PanWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.questSystem != widget.questSystem) {
+      oldWidget.questSystem.removeListener(revalidateBoundaries);
+      questSystem.addListener(revalidateBoundaries);
+      revalidateBoundaries();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _syncOverlayViewport());
+    }
+  }
+
+  @override
   void dispose() {
     _hoverConnectionTimer?.cancel();
     questSystem.removeListener(revalidateBoundaries);
+    _controller.removeListener(_syncOverlayViewport);
+    _cameraAnimationController.dispose();
     super.dispose();
   }
 
@@ -236,12 +320,7 @@ class PanWidgetState extends State<PanWidget> {
     var tx = details.localFocalPoint.dx - s * (_focalAtGestureStart.dx - _txAtGestureStart) / _scaleAtGestureStart;
     var ty = details.localFocalPoint.dy - s * (_focalAtGestureStart.dy - _tyAtGestureStart) / _scaleAtGestureStart;
 
-    final viewportRect = Rect.fromLTWH(-tx / s, -ty / s, context.size!.width / s, context.size!.height / s);
-    _questBubbleOverlayKey.currentState?.onScaleChange(s, viewportRect);
-
-    _controller.value = Matrix4.identity()
-      ..scale(s)
-      ..setTranslation(Vector3(tx, ty, 0));
+    _controller.value = _buildCameraMatrix(s, tx, ty);
   }
 
   void _onScaleEnd(ScaleEndDetails details) {
@@ -367,12 +446,7 @@ class PanWidgetState extends State<PanWidget> {
     var tx = focal.dx - newScale * (focal.dx - currentTx) / currentScale;
     var ty = focal.dy - newScale * (focal.dy - currentTy) / currentScale;
 
-    final viewportRect = Rect.fromLTWH(-tx / newScale, -ty / newScale, context.size!.width / newScale, context.size!.height / newScale);
-    _questBubbleOverlayKey.currentState?.onScaleChange(newScale, viewportRect);
-
-    _controller.value = Matrix4.identity()
-      ..scale(newScale)
-      ..setTranslation(Vector3(tx, ty, 0));
+    _controller.value = _buildCameraMatrix(newScale, tx, ty);
   }
 
   ({int fromId, int toId, Offset midpoint})? _hoveredConnection;
@@ -605,12 +679,7 @@ class PanWidgetState extends State<PanWidget> {
     final targetX = -(quest.posX * scale) + viewSize.width / 2 - (quest.sizeX * scale / 2);
     final targetY = -(quest.posY * scale) + viewSize.height / 2 - (quest.sizeY * scale / 2);
 
-    final viewportRect = Rect.fromLTWH(-targetX / scale, -targetY / scale, viewSize.width / scale, viewSize.height / scale);
-    _questBubbleOverlayKey.currentState?.onScaleChange(scale, viewportRect);
-
-    _controller.value = Matrix4.identity()
-      ..scale(scale)
-      ..translate(targetX / scale, targetY / scale);
+    _controller.value = _buildCameraMatrix(scale, targetX, targetY);
   }
 
   void focusOnQuests(List<Quest> quests, double screenWidth, double screenHeight, {bool zoomOutIfNeeded = true}) {
@@ -651,17 +720,7 @@ class PanWidgetState extends State<PanWidget> {
     final targetTx = screenWidth / 2 - center.dx * targetScale;
     final targetTy = screenHeight / 2 - center.dy * targetScale;
 
-    final viewportRect = Rect.fromLTWH(
-      -targetTx / targetScale,
-      -targetTy / targetScale,
-      screenWidth / targetScale,
-      screenHeight / targetScale,
-    );
-    _questBubbleOverlayKey.currentState?.onScaleChange(targetScale, viewportRect);
-
-    _controller.value = Matrix4.identity()
-      ..scale(targetScale)
-      ..translate(targetTx / targetScale, targetTy / targetScale);
+    _controller.value = _buildCameraMatrix(targetScale, targetTx, targetTy);
   }
 
   void centerOnAllQuests(double screenWidth, double screenHeight, {bool autoZoom = true}) {
@@ -669,22 +728,12 @@ class PanWidgetState extends State<PanWidget> {
 
     double scaleX = screenWidth / (_boundaryMax.dx - _boundaryMin.dx + 1);
     double scaleY = screenHeight / (_boundaryMax.dy - _boundaryMin.dy + 1);
-    double targetScale = autoZoom ? (scaleX < scaleY ? scaleX : scaleY) * 0.85 : _currentScale;
+    double targetScale = autoZoom ? (scaleX < scaleY ? scaleX : scaleY) * 0.95 : _currentScale;
 
     final targetTx = screenWidth / 2 - boundaryCenter.dx * (targetScale);
     final targetTy = screenHeight / 2 - boundaryCenter.dy * (targetScale);
 
-    final viewportRect = Rect.fromLTWH(
-      -targetTx / targetScale,
-      -targetTy / targetScale,
-      screenWidth / targetScale,
-      screenHeight / targetScale,
-    );
-    _questBubbleOverlayKey.currentState?.onScaleChange(targetScale, viewportRect);
-
-    _controller.value = Matrix4.identity()
-      ..scale(targetScale)
-      ..translate(targetTx / targetScale, targetTy / targetScale);
+    _controller.value = _buildCameraMatrix(targetScale, targetTx, targetTy);
   }
 
   static const double minScale = 0.000000001;
@@ -739,15 +788,20 @@ class PanWidgetState extends State<PanWidget> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(context.uiRadiusLg),
             child: DecoratedBox(
-              decoration: const BoxDecoration(color: Color(0xFF0A1218)),
+              decoration: BoxDecoration(color: widget.showBackground ? const Color(0xFF0A1218) : Colors.transparent),
               child: Stack(
                 children: [
-                  Positioned.fill(child: InfiniteDotsBackground(controller: _controller)),
+                  if (widget.showBackground) Positioned.fill(child: InfiniteDotsBackground(controller: _controller)),
                   Positioned.fill(
                     child: AnimatedBuilder(
                       animation: _controller,
                       builder: (context, child) => Transform(transform: _controller.value, alignment: Alignment.topLeft, child: child),
-                      child: QuestBubblesOverlay(key: _questBubbleOverlayKey, debugMode: debugMode, questSystem: questSystem),
+                       child: QuestBubblesOverlay(
+                         key: _questBubbleOverlayKey,
+                         debugMode: debugMode,
+                         questSystem: questSystem,
+                         worldSizeOverride: widget.questOverlaySizeOverride,
+                       ),
                     ),
                   ),
 
