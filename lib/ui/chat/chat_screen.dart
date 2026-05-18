@@ -83,22 +83,22 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
 
-  bool moreMessagesAvailable = true;
-  DateTime? currentMessageCursor;
+   bool moreMessagesAvailable = true;
+   DateTime? currentMessageCursor;
 
-  late final List<ChatMessage> _messages = [];
-  final Map<String, AnimationController> _bubbleControllers = {};
+   late final List<ChatMessage> _messages = [];
+   final Map<String, AnimationController> _bubbleControllers = {};
 
-  bool _isTyping = false;
-  bool _showScrollDown = false;
-  bool _partnerTyping = false;
-  bool _initialViewportAnchored = false;
-  bool _historyLoadArmedByUserScroll = false;
-  static const int _initialHistoryPageSize = 30;
-  static const int _historyPageSize = 20;
-  static const double _historyLoadTopThreshold = 80;
-  static const double _bottomScrollThreshold = 80;
-  String? _editingMessageId;
+    bool _isTyping = false;
+    bool _showScrollDown = false;
+    bool _partnerTyping = false;
+    bool _initialViewportAnchored = false;
+    bool _historyLoadArmedByUserScroll = false;
+    static const int _initialHistoryPageSize = 30;
+    static const int _historyPageSize = 20;
+    static const double _historyLoadTopThreshold = 80;
+    static const double _bottomScrollThreshold = 80;
+    String? _editingMessageId;
   bool _canViewMessageHistory = false;
   final Map<String, Future<ChatRoutePreview?>> _previewFutureCache = {};
   List<String>? _sharedFeedVideoIds;

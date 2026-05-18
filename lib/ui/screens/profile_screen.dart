@@ -68,6 +68,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     _tabController.index = widget.initialTabIndex.clamp(0, 2);
     _tabController.addListener(() {
       if (mounted) setState(() {});
+      _prefetchAdjacentTabs(_tabController.index);
     });
 
     _videoQuery = SearchQuery(
@@ -99,6 +100,19 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
 
     if (widget.ownProfile) {
       _followChangesSub = userRepository.followChanges.listen(_onOwnFollowChanged);
+    }
+  }
+
+  void _prefetchAdjacentTabs(int currentIndex) {
+    // Prefetch next tab to avoid shimmer when swiping
+    final nextIndex = (currentIndex + 1) % 3;
+    switch (nextIndex) {
+      case 1:
+        _followersQuery.preloadMore(limit: 8);
+        break;
+      case 2:
+        _followingQuery.preloadMore(limit: 8);
+        break;
     }
   }
 

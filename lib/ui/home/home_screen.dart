@@ -26,10 +26,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static _HomeScreenCache? _lastHomeCache;
+
   List<Video>? _discoverVideos;
 
   List<UserProfile> _followedCreators = [];
   final Map<String, List<Video>> _creatorVideos = {};
+  final Set<String> _creatorVideoLoadsInFlight = <String>{};
 
   late PageController _followingPageController;
   int _currentCreatorIndex = 0;
@@ -91,7 +94,23 @@ class _HomeScreenState extends State<HomeScreen> {
     _followingPageController = PageController(viewportFraction: 0.92);
     _setupWelcomeMessage();
     _videoRecommender = VideoRecommender();
+    _restoreCachedHomeSnapshot();
     _loadContent();
+  }
+
+  void _restoreCachedHomeSnapshot() {
+    final cache = _lastHomeCache;
+    if (cache == null) return;
+
+    _discoverVideos = List<Video>.from(cache.discoverVideos);
+    _followedCreators = List<UserProfile>.from(cache.followedCreators);
+    _creatorVideos
+      ..clear()
+      ..addAll(cache.creatorVideos.map((key, value) => MapEntry(key, List<Video>.from(value))));
+    _continueLearningVideo = cache.continueLearningVideo;
+    _dailyVideosStarted = cache.dailyVideosStarted;
+    _dailyGoalDate = cache.dailyGoalDate;
+    _currentCreatorIndex = cache.currentCreatorIndex.clamp(0, _followedCreators.isEmpty ? 0 : _followedCreators.length - 1);
   }
 
   @override
@@ -119,24 +138,55 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final learningSnapshot = await videoRepo.getHomeLearningSnapshot(userId: currentUser.id);
 
+      final firstCreatorVideos = <Video>[];
+      if (_followedCreators.isNotEmpty) {
+        try {
+          firstCreatorVideos.addAll(await userRepository.getPublishedVideos(_followedCreators.first.id, limit: 3));
+        } catch (_) {
+          // Keep showing existing placeholder if this optional prefetch fails.
+        }
+      }
+
       if (mounted) {
         setState(() {
           _discoverVideos = discover.toList();
+          _creatorVideos.clear();
+          if (_followedCreators.isNotEmpty) {
+            _currentCreatorIndex = _currentCreatorIndex.clamp(0, _followedCreators.length - 1);
+          } else {
+            _currentCreatorIndex = 0;
+          }
+          if (_followedCreators.isNotEmpty) {
+            _creatorVideos[_followedCreators.first.id] = firstCreatorVideos;
+          }
           _continueLearningVideo = learningSnapshot.continueVideo;
           _dailyGoalDate = DateTime.now();
           _dailyVideosStarted = learningSnapshot.dailyStartedCount;
           _loading = false;
         });
 
+        _lastHomeCache = _HomeScreenCache(
+          discoverVideos: List<Video>.from(_discoverVideos ?? const <Video>[]),
+          followedCreators: List<UserProfile>.from(_followedCreators),
+          creatorVideos: _creatorVideos.map((key, value) => MapEntry(key, List<Video>.from(value))),
+          continueLearningVideo: _continueLearningVideo,
+          dailyVideosStarted: _dailyVideosStarted,
+          dailyGoalDate: _dailyGoalDate,
+          currentCreatorIndex: _currentCreatorIndex,
+        );
+
         if (_followedCreators.isNotEmpty) {
-          _loadVideosForCreator(_followedCreators.first.id);
+          _prefetchCreatorWindow(_currentCreatorIndex);
         }
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _discoverVideos = [];
-          _continueLearningVideo = null;
+          final hasPlaceholderData = (_discoverVideos?.isNotEmpty ?? false) || _followedCreators.isNotEmpty;
+          if (!hasPlaceholderData) {
+            _discoverVideos = [];
+            _continueLearningVideo = null;
+          }
           _loading = false;
         });
       }
@@ -144,7 +194,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadVideosForCreator(String creatorId) async {
-    if (_creatorVideos.containsKey(creatorId)) return;
+    if (_creatorVideos.containsKey(creatorId) || _creatorVideoLoadsInFlight.contains(creatorId)) return;
+
+    _creatorVideoLoadsInFlight.add(creatorId);
 
     try {
       final videos = await userRepository.getPublishedVideos(creatorId, limit: 3);
@@ -161,6 +213,21 @@ class _HomeScreenState extends State<HomeScreen> {
           _creatorVideos[creatorId] = [];
         });
       }
+    }
+
+    _creatorVideoLoadsInFlight.remove(creatorId);
+  }
+
+  void _prefetchCreatorWindow(int centerIndex) {
+    if (_followedCreators.isEmpty) return;
+
+    final indexesToLoad = <int>{
+      centerIndex,
+      centerIndex + 1,
+    }.where((index) => index >= 0 && index < _followedCreators.length);
+
+    for (final index in indexesToLoad) {
+      _loadVideosForCreator(_followedCreators[index].id);
     }
   }
 
@@ -465,6 +532,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               return GestureDetector(
                 onTap: () {
+                  _prefetchCreatorWindow(index);
                   _followingPageController.animateToPage(index, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
                 },
                 child: AnimatedContainer(
@@ -489,7 +557,7 @@ class _HomeScreenState extends State<HomeScreen> {
             controller: _followingPageController,
             onPageChanged: (index) {
               setState(() => _currentCreatorIndex = index);
-              _loadVideosForCreator(_followedCreators[index].id);
+              _prefetchCreatorWindow(index);
             },
             itemCount: _followedCreators.length,
             itemBuilder: (context, index) {
@@ -763,7 +831,8 @@ class _HomeScreenState extends State<HomeScreen> {
   
 
   Widget _buildDiscoverCarouselGrid(ColorScheme cs) {
-    if (_loading) {
+    final items = _discoverVideos ?? [];
+    if (_loading && items.isEmpty) {
       return Column(
         children: [
           ShimmerBlock(height: 160, borderRadius: BorderRadius.circular(context.uiRadiusLg)),
@@ -775,7 +844,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    final items = _discoverVideos ?? [];
     if (items.isEmpty) return const SizedBox.shrink();
 
     //a third of all of the videos
@@ -1093,3 +1161,24 @@ class _FeedListVideoCard extends StatelessWidget {
     );
   }
 }
+
+class _HomeScreenCache {
+  final List<Video> discoverVideos;
+  final List<UserProfile> followedCreators;
+  final Map<String, List<Video>> creatorVideos;
+  final Video? continueLearningVideo;
+  final int dailyVideosStarted;
+  final DateTime dailyGoalDate;
+  final int currentCreatorIndex;
+
+  const _HomeScreenCache({
+    required this.discoverVideos,
+    required this.followedCreators,
+    required this.creatorVideos,
+    required this.continueLearningVideo,
+    required this.dailyVideosStarted,
+    required this.dailyGoalDate,
+    required this.currentCreatorIndex,
+  });
+}
+
