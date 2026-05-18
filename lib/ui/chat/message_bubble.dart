@@ -2,6 +2,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_web_file_saver/flutter_web_file_saver.dart';
+import 'package:http/http.dart' as http;
 import 'package:lumox/ui/theme/theme_creation_screen.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:lumox/logic/chat/chat_message.dart';
@@ -276,6 +279,31 @@ class _BubbleBody extends StatelessWidget {
                 ],
               ),
             ),
+          // If the message doesn't contain visible text but contains image markdown, render the image(s)
+          if (!hasText) ...[
+            for (final img in _extractImageUrls(message.text))
+              Padding(
+                padding: EdgeInsets.only(top: context.uiSpace(6)),
+                child: GestureDetector(
+                  onTap: () => _showImageViewer(context, img),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(context.uiRadiusMd),
+                    child: CachedNetworkImage(
+                      imageUrl: img,
+                      width: 220,
+                      height: 220,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) => Container(
+                        width: 220,
+                        height: 220,
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        child: Icon(Icons.broken_image, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
           _RoutePreviewList(
             messageText: message.text,
             onRouteTap: onRouteTap,
@@ -397,6 +425,24 @@ class _MessageText extends StatelessWidget {
     return MarkdownBody(
       data: linkified,
       styleSheet: sheet,
+      // make images clickable by providing an imageBuilder
+      imageBuilder: (uri, title, alt) {
+        final url = uri.toString();
+        return GestureDetector(
+          onTap: () => _showImageViewer(context, url),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(context.uiRadiusMd),
+            child: CachedNetworkImage(
+              imageUrl: url,
+              fit: BoxFit.cover,
+              errorWidget: (_, __, ___) => Container(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                child: Icon(Icons.broken_image, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+            ),
+          ),
+        );
+      },
       onTapLink: (label, href, title) {
         final raw = href?.trim();
         if (raw == null || raw.isEmpty) return;
@@ -422,6 +468,8 @@ class _MessageText extends StatelessWidget {
       },
     );
   }
+
+    
 }
 
 bool _looksLikeMarkdown(String text) {
@@ -536,6 +584,77 @@ bool _isInSkipRange(int start, int end, List<TextRange> ranges) {
     if (range.start < end && start < range.end) return true;
   }
   return false;
+}
+
+List<String> _extractImageUrls(String data) {
+  final urls = <String>[];
+  final imgRegex = RegExp(r'!\[[^\]]*\]\(([^)]+)\)');
+  for (final m in imgRegex.allMatches(data)) {
+    final raw = m.group(1)?.trim();
+    if (raw == null || raw.isEmpty) continue;
+    // Remove optional title or whitespace
+    final url = raw.split(' ').first;
+    urls.add(url);
+  }
+  return urls;
+}
+
+void _showImageViewer(BuildContext context, String url) {
+  showGeneralDialog(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'Image',
+    pageBuilder: (ctx, a1, a2) {
+      return GestureDetector(
+        onTap: () => Navigator.of(ctx).pop(),
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.9),
+          child: SafeArea(
+            child: Stack(
+              children: [
+                Center(
+                  child: InteractiveViewer(
+                    child: CachedNetworkImage(imageUrl: url, errorWidget: (_, __, ___) => const Icon(Icons.broken_image, size: 64, color: Colors.white)),
+                  ),
+                ),
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.file_download_outlined, color: Colors.white),
+                        onPressed: () async {
+                          try {
+                            if (kIsWeb) {
+                              final resp = await http.get(Uri.parse(url));
+                                final bytes = resp.bodyBytes;
+                                final filename = url.split('/').last.split('?').firstWhere((e) => e.isNotEmpty, orElse: () => 'image.jpg');
+                                await FlutterWebFileSaver.saveFile(bytes: bytes, filename: filename);
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Image downloaded')));
+                            } else {
+                              await Clipboard.setData(ClipboardData(text: url));
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Image URL copied to clipboard')));
+                            }
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to download image: $e')));
+                          }
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _RoutePreviewList extends StatelessWidget {

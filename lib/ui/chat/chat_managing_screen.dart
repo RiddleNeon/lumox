@@ -244,6 +244,8 @@ class ChatManagingScreenState extends State<ChatManagingScreen> {
           formattedMessage = '🔗 Shared a link';
       }
     }
+    if (formattedMessage.startsWith('!['))
+      formattedMessage = '🖼 Shared an image';
     return formattedMessage;
   }
 
