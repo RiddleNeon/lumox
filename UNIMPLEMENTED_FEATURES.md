@@ -6,14 +6,12 @@ I Wasn't able to implement the following features due to time constraints, techn
 - [ ] Advanced Recommendation Algorithm
 - [ ] Video Transcribing
 - [ ] Video Thumbnail Generation
-- [ ] AI-Powered Content Moderation
-- [ ] AI-Companion
 
 ---
 
 ## Video Uploading
 
-I wasn't able to implement video uploading to cloudflare, because if you want to use it you need to enter your credit card details, and I didn't want to do that.
+I wasn't able to implement video uploading to cloudflare, because if you want to use cloudflare you need to enter your credit card details, and I didn't want to do that.
 
 For profile images and thumbnails I used Cloudinary, which has a free tier that allows you to upload images without entering your credit card details. However, for video uploading, I would have needed to use Cloudflare R2, because Cloudinary has not a lot of free storage.
 
@@ -44,19 +42,3 @@ Video Thumbnail Generation requires processing the video to extract a frame and 
 Cloudinary provides a way to generate thumbnails from videos, but there are heavy rate limits on the free tier.
 
 And as stated above, I wasn't able to use Cloudflare R2 for video uploading, so I couldn't use their thumbnail generation feature either.
-
----
-
-## AI-Powered Content Moderation
-
-AI-Powered Content Moderation would require integrating an AI service that can analyze the content of videos and comments to detect non-relevant content.
-
-AI services are often not free, and even if they were, it would have heavy rate limits that would make it difficult to implement.
-
-Since there isn't even a way of uploading videos, there is no point in implementing content moderation, since there would be no content to moderate.
-
----
-
-## AI-Companion
-
-As stated above, AI services are pretty expensive, so i decided to skip this feature for now.

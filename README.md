@@ -1,38 +1,17 @@
 # lumox
+
+Lumox is a social media app built with flutter, supabase and firebase. the goal of it is to act as a social media app for learning, where you can pass your time scrolling videos while actually learning something!  
+
+
 > [!IMPORTANT]
 > this is a flutter app for a scool project. it is not meant to be used for any real-live uses, but all the used backend providers and storage providers are the best ones for this usecase and the code is built to be scalable. 
 
-## backend
-as for the database, auth and analytics provider, ive descided to use **supabase**. supabase is a backend provider containing its own services like auth and third party connections.<br>
-the database uses **postgreSQL**. it provides a lot of features like rls policies, views, relatively high performance, functions and a lot more. **supabase auth** is an included auth service provided by supabase. it contains basic e-mail authentification and sms verification. It also lets you link third-party services as auth providers. this includes google, github, discord, twitter (x), facebook, spotify and a lot more. however ive chosen to only use e-mail verification for now since i dont want to overcomplicate that since it is at the end of the day just a school project and every third party service requires you to register your app, verify, send an application and so on. 
-
-### pricing 
-pretty much the main reason why i chose supabase is the pricing. <br>
-when using supabase, you only pay for some of the servers resources. (in the pro plan, per month) you pay for
-- database size: 8 gb are included, after that 0.125$ / gb
-- monthly active users: 100,000 MAU, then 0.00325$ / MAU
-- egress (data transfer): 250 gb included, after that 0.09$ / gb
-- base pro plan cost: 25$
-
-while this seems expensive, you have to compare this to the size of the data thats actually stored. since we dont store the actual image or video data but just the urls, the file size of one video is about 200 bytes at max. so you would be able to store about 40 million videos without exceeding the included database size. <br>
-as for the egress fees, the users would need to watch over 41 million videos every day to exceed the included egress.
-
-## data storage provider
-for storing the actual video data, profile images, thumbnails, subtitles and all of the actual heavy data i chose **Cloudflare**. cloudflare is especcially useful since it doesnt fee any egress costs, you only really pay for the actual storage and the operations. this is important since egress usually is pretty much the biggest bottleneck for social-media-like apps since the users are mass-downloading data from the server. if you take a look at tiktok for example single videos can reach immense amounts of views, reaching from the millions into the billions. since egress fees are free we only pay for the storage of a single video. there is however a limited amount of included free read operations. the operations are split into 2 categories, class A and class B operations. class A operations are more expensive but give you more power. besides of uploading videos we only need the class B operations which are a lot cheaper. here are the prices:
-- class A operations: 1m free, then 4.50$/1m operations
-- class B operations: 10m free, then 0.36$/1m operations
-
-since profile images are being cached, we can count one sroll roughly as 1.2 class B operations. 
-
-
-
-# project info
-here is some more info about the creation of the project. 
-
-## swot 
-<img width="855" height="383" alt="swot" src="https://github.com/user-attachments/assets/7cb7bc74-0f15-4e3c-a9db-d3859920aa3e" />
-
-
-## gantt plan
-
-<img width="1498" height="700" alt="gantt" src="https://github.com/user-attachments/assets/60efe0ec-e68d-4dd9-b317-8947ae419415" />
+# resources
+Since this has gotten a bit too large, I've split the different documentations into different files and repositories. here is a list of all the different documentations and their content:
+- [Features](FEATURES.md): contains all the features of the app, the user stories and the use cases.
+- [Backend repo](https://github.com/RiddleNeon/lumox-backend): here I explain the backend, including the database schema (tables, functions, etc.), and you can view the code itself (a 6000 lines query of the public schema for anyone wanting to re-create the backend).
+- [Working Demo](https://riddleneon.github.io/lumox/): here you can actually try the app! it asks you to sign up, but you can just use a fake email since I disabled email verification for now. for the ones with way too much free time, I hid some easter eggs in the app, so if you find them all, you can consider yourself a true lumox fan!
+- [Backend Choices](BACKEND_CHOICES.md): contains all the infos about the backend and storage providers, the pricing and the reasons why I chose them.
+- [Unimplemented Features](UNIMPLEMENTED_FEATURES.md): contains all the features that i wasn't able to implement. you can find the reasons why I wasn't able to implement them there!
+- [Outdated Readme](README_OUTDATED_firebase.md): contains the old readme with the firebase backend, which is now outdated since I switched to supabase.
+- [Project Info](PROJECT_INFO.md): contains all the information about the project for my teacher and classmates. it includes the swot analysis and the gantt plan.

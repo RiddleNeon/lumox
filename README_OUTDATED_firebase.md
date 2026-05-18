@@ -1,6 +1,12 @@
-# scroller_test
 
-this is a flutter app für a scool project. it is meant to be used for any real-live uses, but all the used backend providers, storage providers and code structure are the optimal ones for their corrsponding usages.
+
+> [!WARNING]
+> this readme is outdated. 
+> look at [README.md](README.md) for the updated readme with the new backend provider (supabase instead of firebase).
+> 
+> this readme is really old and i didn't really update its style and formatting, so it might be a bit hard to read. but if you're interested in the old firebase backend and the reasons why I switched to supabase, you can read this readme.
+> (this was around the time when I switched to supabase so I gave some examples here why supabase is better)
+
 
 ## auth and main backend service
 for authentification ive descided to use **firebase auth**. firebase is a service by google that provides practically free authentification. it is pretty safe, performant and allows you to sign in / sign up using your email / phone number or other third party services like google, github or discord. for this project ive descided to only use email and google sign in since those are the two most common ones. <br>
