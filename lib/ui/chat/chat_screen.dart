@@ -109,21 +109,36 @@ class MessagingScreenState extends State<MessagingScreen> with TickerProviderSta
 
   RealtimeChannel? _messagesChannel;
 
-  @override
-  void initState() {
-    super.initState();
+   @override
+   void initState() {
+     super.initState();
 
-    _textController.addListener(_onTextChanged);
-    _scrollController.addListener(_onScroll);
+     _textController.addListener(_onTextChanged);
+     _scrollController.addListener(_onScroll);
 
-    _typingDotController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat();
+     _typingDotController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat();
 
-    _loadHistoryPermission();
-    _loadDictionaryEntries();
-    _preloadMore(limit: _initialHistoryPageSize);
+     _loadHistoryPermission();
+     _loadDictionaryEntries();
+     
+     _loadCachedMessages();
+     
+     _preloadMore(limit: _initialHistoryPageSize);
 
-    _startRealtime();
-  }
+     _startRealtime();
+   }
+
+   Future<void> _loadCachedMessages() async {
+     try {
+       final cachedMessages = await localSeenService.getMessagesWithLocal(widget.recipientId, limit: _initialHistoryPageSize);
+       if (cachedMessages.isNotEmpty && mounted) {
+         _addMessages(cachedMessages, appendToEnd: false, isNewMessage: false);
+         _initialViewportAnchored = true;
+       }
+     } catch (e) {
+       debugPrint('Failed to load cached messages: $e');
+     }
+   }
 
   void _startRealtime() {
     final supabase = Supabase.instance.client;
