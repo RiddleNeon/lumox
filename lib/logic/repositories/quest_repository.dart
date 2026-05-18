@@ -53,7 +53,6 @@ class QuestRepository {
 
     if (questMap.isEmpty) return (<Quest>[], <QuestConnection>[]);
 
-    print("getting rows now for quests: ${questMap.keys.toList()}");
 
     final connectionRows = await supabaseClient
         .from('quest_connections')
@@ -66,7 +65,6 @@ class QuestRepository {
     for (final row in connectionRows as List<dynamic>) {
       final latest = row['quest_connections_latest'] as Map<String, dynamic>?;
       if (latest == null || latest['is_deleted'] == true) continue;
-
       connectionList.add(QuestConnection(fromQuestId: row['from_id'] as int, toQuestId: row['to_id'] as int, type: row['quest_connections_latest']['type'] as String, xpRequirement: (row['quest_connections_latest']['xp_requirement'] as num?)?.toDouble() ?? 0));
     }
 

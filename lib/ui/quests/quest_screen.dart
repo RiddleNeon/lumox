@@ -15,56 +15,68 @@ import 'package:lumox/ui/quests/version_management/change_screen.dart';
 import 'core/pan.dart';
 
 class QuestScreen extends StatefulWidget {
-  final String subject;
   final List<int> focusQuestIds;
   final bool zoomOutIfNeeded;
+  final String initialSubject;
 
-  const QuestScreen({super.key, required this.subject, this.focusQuestIds = const [], this.zoomOutIfNeeded = true});
+  const QuestScreen({super.key, required this.initialSubject, this.focusQuestIds = const [], this.zoomOutIfNeeded = true});
 
   @override
   State<QuestScreen> createState() => _QuestScreenState();
 }
 
 class _QuestScreenState extends State<QuestScreen> {
-  final GlobalKey<PanWidgetState> _panKey = GlobalKey<PanWidgetState>();
+  final Map<String, GlobalKey<PanWidgetState>> _panKeys = {};
   bool debugMode = false;
   bool hasPendingChanges = false;
   bool isSubjectMenuOpen = false;
+  bool _questViewportReady = false;
+  int _questSystemLoadToken = 0;
   final Set<String> expandedSubjectGroups = {};
   final Set<String> locallyCreatedSubjects = {};
   late Future<List<String>> subjectFuture;
+  
+  late String subject = widget.initialSubject;
+  
+  GlobalKey<PanWidgetState> get _panKey => _panKeys.putIfAbsent(subject, () => GlobalKey<PanWidgetState>());
 
   @override
   initState() {
     super.initState();
-    print("Initializing TestQuestScreen with subject: ${widget.subject}");
-    questSystemFuture = loadQuestSystem();
+    print("Initializing TestQuestScreen with subject: $subject");
+    questSystemFuture = loadQuestSystemFor(subject, _questSystemLoadToken);
     subjectFuture = questRepo.fetchQuestSubjects();
   }
 
-  Future<QuestSystem> loadQuestSystem() async {
+  Future<QuestSystem> loadQuestSystemFor(String subjectToLoad, int loadToken) async {
     QuestSystem questSystem = QuestSystem();
-    print("-- Loading quests for subject: ${widget.subject}");
-    await questSystem.loadFromServer(widget.subject);
+    print("-- Loading quests for subject: $subjectToLoad");
+    await questSystem.loadFromServer(subjectToLoad);
 
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
-      if (!mounted) return;
+      if (!mounted || loadToken != _questSystemLoadToken) return;
       setState(() {
         final focusQuests = widget.focusQuestIds.map((id) => questSystem.maybeGetQuestById(id)).whereType<Quest>().toList();
 
         if (focusQuests.isEmpty) {
           _panKey.currentState?.centerOnAllQuests(context.size?.width ?? 1000, context.size?.height ?? 1000);
+          _questViewportReady = true;
           return;
         }
 
         final panState = _panKey.currentState;
-        if (panState == null) return;
-        (panState as dynamic).focusOnQuests(focusQuests, context.size?.width ?? 1000, context.size?.height ?? 1000, zoomOutIfNeeded: widget.zoomOutIfNeeded);
+        if (panState == null) {
+          _questViewportReady = true;
+          return;
+        }
+        panState.focusOnQuests(focusQuests, context.size?.width ?? 1000, context.size?.height ?? 1000, zoomOutIfNeeded: widget.zoomOutIfNeeded);
+
+        _questViewportReady = true;
       });
     });
 
     questSystem.changeManager.addListener(() {
-      if (!mounted) return;
+      if (!mounted || loadToken != _questSystemLoadToken) return;
       if (questSystem.changeManager.hasPendingChanges != hasPendingChanges) {
         setState(() {
           hasPendingChanges = questSystem.changeManager.hasPendingChanges;
@@ -73,17 +85,12 @@ class _QuestScreenState extends State<QuestScreen> {
     });
     return questSystem;
   }
+  
+  Future<QuestSystem> reloadQuestSystem() async {
+    return loadQuestSystemFor(subject, _questSystemLoadToken);
+  }
 
   late Future<QuestSystem> questSystemFuture;
-
-  @override
-  void didUpdateWidget(covariant QuestScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.subject != widget.subject) {
-      questSystemFuture = loadQuestSystem();
-      setState(() {});
-    }
-  }
 
   Future<void> _showCreateSubjectDialog() async {
     final controller = TextEditingController();
@@ -120,12 +127,30 @@ class _QuestScreenState extends State<QuestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if(subject.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('No subject selected')),
+        body: const Center(child: Text('Please select a subject to view quests.')),
+      );
+    }
     return FutureBuilder(
+      key: ValueKey(subject),
       future: questSystemFuture,
       builder: (context, asyncSnapshot) {
-        final loaded = asyncSnapshot.hasData;
+        final loaded = asyncSnapshot.connectionState == ConnectionState.done && asyncSnapshot.hasData;
         final questSystem = asyncSnapshot.data;
         final colorScheme = Theme.of(context).colorScheme;
+        final questView = loaded && questSystem != null
+            ? IgnorePointer(
+                ignoring: !_questViewportReady,
+                child: Opacity(
+                  opacity: _questViewportReady ? 1 : 0,
+                  child: SizedBox.expand(
+                    child: PanWidget(key: _panKey, questSystem: questSystem),
+                  ),
+                ),
+              )
+            : const Center(child: CircularProgressIndicator());
 
         return Scaffold(
           appBar: AppBar(
@@ -142,11 +167,7 @@ class _QuestScreenState extends State<QuestScreen> {
           ),
           body: Stack(
             children: [
-              loaded
-                  ? SizedBox.expand(
-                      child: PanWidget(key: _panKey, questSystem: questSystem!),
-                    )
-                  : const Center(child: CircularProgressIndicator()),
+              questView,
               Positioned.fill(
                 child: IgnorePointer(
                   ignoring: !isSubjectMenuOpen,
@@ -163,7 +184,7 @@ class _QuestScreenState extends State<QuestScreen> {
               ),
               _SubjectMenu(
                 isOpen: isSubjectMenuOpen,
-                currentSubject: widget.subject,
+                currentSubject: subject,
                 subjectFuture: subjectFuture,
                 expandedGroups: expandedSubjectGroups,
                 colorScheme: colorScheme,
@@ -179,14 +200,19 @@ class _QuestScreenState extends State<QuestScreen> {
                     }
                   });
                 },
-                onSelectSubject: (subject) {
-                  if (subject == widget.subject) {
+                onSelectSubject: (selectedSubject) async {
+                  if (selectedSubject == subject) {
                     setState(() => isSubjectMenuOpen = false);
                     return;
                   }
-                  setState(() => isSubjectMenuOpen = false);
-                  final uri = Uri(path: '/quests', queryParameters: {'subject': subject});
-                  context.go(uri.toString());
+                  final loadToken = ++_questSystemLoadToken;
+                  setState(() {
+                    subject = selectedSubject;
+                    isSubjectMenuOpen = false;
+                    hasPendingChanges = false;
+                    _questViewportReady = false;
+                    questSystemFuture = loadQuestSystemFor(selectedSubject, loadToken);
+                  });
                 },
               ),
             ],

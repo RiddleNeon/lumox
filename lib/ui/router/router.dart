@@ -221,7 +221,7 @@ void initRouter() {
               final zoomOutIfNeeded = _parseZoomOut(state.uri.queryParameters['zoom']);
               final subjectParam = state.uri.queryParameters['subject']?.trim();
               final subject = subjectParam == null || subjectParam.isEmpty ? 'General' : subjectParam;
-              return QuestScreen(subject: subject, focusQuestIds: focusIds, zoomOutIfNeeded: zoomOutIfNeeded);
+              return QuestScreen(initialSubject: subject, focusQuestIds: focusIds, zoomOutIfNeeded: zoomOutIfNeeded);
             },
           ),
           GoRoute(

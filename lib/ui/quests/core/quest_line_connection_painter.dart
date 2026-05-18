@@ -83,11 +83,13 @@ class QuestLineConnectionPainter extends CustomPainter {
   static const double _spatialIndexCellSize = 180.0;
 
   void rebuildCache() {
+    print("rebuilding cache!");
     _cache.clear();
     _spatialIndex.clear();
     for (final quest in questSystem.quests) {
       for (final prereq in questSystem.prerequisitesOf(quest.id)) {
         _buildAndStoreEntry(prereq.id, quest.id);
+        print("found connection from ${prereq.id} to ${quest.id}");
       }
     }
   }

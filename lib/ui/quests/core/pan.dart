@@ -35,7 +35,7 @@ class PanWidgetState extends State<PanWidget> {
 
   bool debugMode = false;
 
-  final _questBubbleOverlayKey = GlobalKey<QuestBubblesOverlayState>();
+  late final _questBubbleOverlayKey = GlobalKey<QuestBubblesOverlayState>();
 
   Quest? _draggingQuest;
   Offset _dragStartQuestPos = Offset.zero;
@@ -129,6 +129,8 @@ class PanWidgetState extends State<PanWidget> {
     _hoverConnectionTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
       _refreshHoveredConnection();
     });
+    
+    print("NEW PAN WIDGET STATE CREATED: ${DateTime.now().toIso8601String()}");
   }
 
   @override

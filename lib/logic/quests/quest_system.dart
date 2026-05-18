@@ -92,18 +92,16 @@ class QuestSystem with ChangeNotifier {
 
   /// Fetches quests for [subject] from the server and merges them into the
   /// local map. Existing quests with the same ID are replaced.
-  ///
-  /// Note: [QuestRepository.fetchQuestsBySubject] must be updated to return
-  /// connection data separately (as a [Map<int, Set<int>>]) instead of
-  /// populating [Quest.prerequisites] directly.
   Future<void> loadFromServer(String subject) async {
     print("Loading quests for subject: $subject");
     final (fetchedQuests, fetchedConnections) = await questRepo.fetchQuestsBySubject(subject);
 
+    _quests.clear();
     for (final quest in fetchedQuests) {
       _quests[quest.id] = quest;
     }
     
+    _prerequisites.clear();
     for (final conn in fetchedConnections) {
       _prerequisites[_key(conn.fromQuestId, conn.toQuestId)] = conn;
     }

@@ -40,6 +40,8 @@ class QuestBubblesOverlayState extends State<QuestBubblesOverlay>
   @override
   void initState() {
     super.initState();
+    
+    print("NEW STATE!!!! subject: ${questSystem.subject}, current quest connections: ${questSystem.getConnections().length}, quests: ${questSystem.quests.length}");
 
     _lineAnimCtrl =
     AnimationController(vsync: this, duration: const Duration(seconds: 2))
@@ -75,6 +77,7 @@ class QuestBubblesOverlayState extends State<QuestBubblesOverlay>
   }
   
   void _onQuestSystemChanged() {
+    print("Quest system changed, recomputing world bounds and colors...");
     final newBounds = _computeWorldBounds();
     final boundsChanged = newBounds != _worldBounds;
 
