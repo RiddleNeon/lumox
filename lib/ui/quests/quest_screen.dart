@@ -304,19 +304,12 @@ class _QuestScreenState extends State<QuestScreen> with SingleTickerProviderStat
         _currentQuestSystem = loaded.system;
         _currentTransform = endTransform;
         _incomingQuestSystem = null;
+        _transitionMergedSystem = null;
+        _transitionOverlaySize = null;
         hasPendingChanges = loaded.system.changeManager.hasPendingChanges;
       });
 
       _panController.value = Matrix4.copy(endTransform);
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && loadToken == _questSystemLoadToken) {
-          setState(() {
-            _transitionMergedSystem = null;
-            _transitionOverlaySize = null;
-          });
-        }
-      });
     });
   }
 

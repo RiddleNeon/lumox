@@ -177,6 +177,7 @@ class QuestBubblesOverlayState extends State<QuestBubblesOverlay>
                 _derivedQuestColors[quest.id] ?? quest.color;
             
             return Positioned(
+              key: ValueKey('${quest.subject}:${quest.id}'),
               left: isDragged ? drag.pos!.dx : quest.posX,
               top: isDragged ? drag.pos!.dy : quest.posY,
               child: QuestBubble(
